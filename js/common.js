@@ -63,6 +63,10 @@ const KII = {
   areaPrefixes: { "Human Being": "HUM", "Smart Cities": "SMC", "House Ware": "HSW", "Sustainable Energy": "SER",
     "Health": "HLT", "Education": "EDU", "Transportation": "TRN", "IT": "ITC", "Fashion": "FSH", "Automation": "AUT", "Other": "OTH" },
   nextApplicantCode(area) {
+    if (window.KIIServer?.enabled) { // unique across all applicants
+      const r = KIIServer.post("/api/code", { area });
+      if (r.ok && r.json.code) return r.json.code;
+    }
     const prefix = this.areaPrefixes[area] || "APP";
     let max = 0;
     for (let i = 0; i < localStorage.length; i++) {
@@ -116,6 +120,7 @@ const KII = {
     this.selectApplication(email, remaining[0]?.id || "legacy");
   },
   async deleteFile(id) {
+    if (window.KIIServer?.enabled) await fetch("/api/files?id=" + encodeURIComponent(id), { method: "DELETE", headers: { "X-KII": "1" } }).catch(() => {});
     const db = await this.openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("files", "readwrite");
@@ -139,6 +144,13 @@ const KII = {
     return this._dbPromise;
   },
   async saveFile(id, file) {
+    if (window.KIIServer?.enabled) {
+      try {
+        const r = await fetch("/api/files?id=" + encodeURIComponent(id), { method: "PUT", body: file,
+          headers: { "X-KII": "1", "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name || "file") } });
+        return r.ok;
+      } catch (e) { console.error("Upload to server failed:", e); return false; }
+    }
     try {
       const db = await this.openDb();
       await new Promise((res, rej) => {
@@ -154,6 +166,15 @@ const KII = {
     }
   },
   async getFile(id) {
+    if (window.KIIServer?.enabled) {
+      try {
+        const r = await fetch("/api/files?id=" + encodeURIComponent(id), { headers: { "X-KII": "1" } });
+        if (r.ok) {
+          const blob = await r.blob();
+          return new File([blob], decodeURIComponent(r.headers.get("X-File-Name") || "file"), { type: blob.type });
+        }
+      } catch { }
+    }
     try {
       const db = await this.openDb();
       return await new Promise((res, rej) => {

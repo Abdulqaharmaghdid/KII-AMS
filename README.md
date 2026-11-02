@@ -1,14 +1,29 @@
 ﻿# KII Application Portal
 
-Run `.\start.bat` from this folder, or run `python -m http.server 8090`.
-Keep the terminal open; press Ctrl+C to stop the server.
+Run `.\start.bat` from this folder (or `npm start`). It needs Node.js 22.13+ and no extra packages.
+Keep the window open; press Ctrl+C to stop the server.
 
 - Applicant portal: http://localhost:8090/index.html
-- Staff portal: http://localhost:8090/admin-login.html
+- Staff portal: http://localhost:8090/admin-login.html (first start: `admin@kii.org` / `admin123`, must be changed)
+- Phones and other computers on the same network: use the "On your network" address printed by the server.
 
-This is a static frontend. Accounts and application records use localStorage;
-uploads use IndexedDB. Applicant and staff views share data only in the same
-browser profile and origin. Email messages are logged locally.
+## Local server (`server/server.cjs`)
+
+- One shared database for every browser and device: `data/kii.db` (SQLite) and uploaded files in `data/files/`.
+  Back up the `data` folder to keep everything; it is excluded from Git.
+- Sign-up, sign-in and sign-out are checked by the server (HttpOnly session cookies, 5-attempt lockout,
+  staff sessions end after 60 minutes of inactivity). Password hashes never leave the server.
+- Each applicant receives only their own account, applications, case record, messages, chat and files.
+  Staff-only parts of a case (evaluations, decisions, KPIs, checklists, procurement, internal documents)
+  are hidden from applicants and cannot be changed by them. Changes are merged record by record, so
+  several people can work at the same time.
+- Form Builder changes, settings and application codes (`EDU013` …) are shared and unique for everyone.
+- The first time the server starts empty, a browser that already holds data from the earlier version
+  offers to upload it (records and files).
+- `js/server-sync.js` connects the pages to the server. If the pages are opened without the server
+  (e.g. a plain static host), everything still works inside that one browser as before.
+
+Email messages are still logged inside the system (no real email is sent yet).
 
 ## Project structure
 
@@ -39,6 +54,7 @@ Node.js LTS version (22.13 or newer in the 22.x series, or 24+) and run:
 npm ci
 npm test
 npm run test:browser
+npm run test:server   # real server, three separate browsers, import of old browser data
 ```
 
 The browser test uses installed Google Chrome. To use installed Microsoft Edge:

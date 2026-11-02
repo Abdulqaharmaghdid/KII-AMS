@@ -89,6 +89,13 @@ if (signupForm) {
     if (!(age >= 14 && age <= 100)) return showAlert("Please enter a valid date of birth.");
     if (!document.getElementById("privacyConsent").checked)
       return showAlert("Please accept the privacy notice to create your account.");
+    if (window.KIIServer?.enabled) {
+      const r = KIIServer.post("/api/signup", { password, user: { firstName, secondName, thirdName, dob, passport, country, city, town,
+        phone: phoneCode + " " + phone, email, organization, website, privacyConsentAt: new Date().toISOString() } });
+      if (!r.ok) return showAlert(r.json.error || "Could not create the account. Please try again.");
+      window.location.href = "dashboard.html";
+      return;
+    }
     if (KII.findUser(email)) return showAlert("An account with this email already exists. Please sign in.");
 
     const pw = KII.makePassword(password);
@@ -114,6 +121,12 @@ if (loginForm) {
     e.preventDefault();
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value;
+    if (window.KIIServer?.enabled) {
+      const r = KIIServer.post("/api/login", { email, password });
+      if (!r.ok) return showAlert(r.json.error || "Invalid email or password.");
+      window.location.href = "dashboard.html";
+      return;
+    }
     const mins = KII.isLocked(email);
     if (mins) return showAlert(`Too many failed attempts. Please try again in ${mins} minute(s).`);
     const user = KII.findUser(email);

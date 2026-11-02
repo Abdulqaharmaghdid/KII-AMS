@@ -46,6 +46,7 @@
   </div>
 </div>
 
+<script src="js/server-sync.js?v=srv-1"></script>
 <script src="js/common.js?v=fb-1"></script>
 <script src="js/ams.js?v=fb-1"></script>
 <script>
@@ -61,6 +62,12 @@
     e.preventDefault();
     const email = document.getElementById("staffEmail").value.trim();
     const pass = document.getElementById("staffPassword").value;
+    if (window.KIIServer?.enabled) {
+      const r = KIIServer.post("/api/staff-login", { email, password: pass });
+      if (!r.ok) return showAlert(r.json.error || "Invalid staff email or password.");
+      window.location.href = r.json.mustChangePassword ? "admin.html?pw=1" : "admin.html";
+      return;
+    }
     const lockId = "staff:" + email;
     const mins = KII.isLocked(lockId);
     if (mins) return showAlert(`Too many failed attempts. Please try again in ${mins} minute(s).`);

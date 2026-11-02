@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node tests/application.test.cjs && node tests/legacy-and-admin.test.cjs && node tests/workflow.test.cjs",
     "test:browser": "node tests/application.test.cjs --browser",
-    "form-schema": "node tools/generate-form-schema.cjs"
+    "form-schema": "node tools/generate-form-schema.cjs",
+    "start": "node server/server.cjs",
+    "test:server": "node tests/server.test.cjs && node tests/import.test.cjs"
   },
   "devDependencies": {
     "jsdom": "29.1.1",
