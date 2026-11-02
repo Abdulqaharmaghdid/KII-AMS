@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KII Innovation Program — Applicant Portal</title>
+<link rel="stylesheet" href="css/style.css?v=fb-1">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="asset/kii_logocl.png" alt="Kurdistan Innovation Institute" class="brand-logo"><div class="brand-txt">KII <span>Innovation Program</span></div></div>
+  <nav>
+    <a href="admin-login.html">Staff</a>
+    <a href="login.html">Sign In</a>
+    <a href="signup.html" class="btn-nav">Create Account</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>KII Innovation Program</h1>
+  <p>Apply to the KII Innovation Program. Create an account, start an idea, and
+     complete your application in nine steps. Choose your innovation sector
+     within the application form.</p>
+  <div class="cta">
+    <a class="btn" href="signup.html">Create Account</a>
+    <a class="btn btn-secondary" href="login.html">Sign In</a>
+  </div>
+</section>
+
+<div class="page">
+  <div class="features">
+    <div class="feature-card">
+      <h3>1. Create your account</h3>
+      <p>Register with your name, date of birth, contact details and organization.</p>
+    </div>
+    <div class="feature-card">
+      <h3>2. Start an idea</h3>
+      <p>Create a separate application for each innovation you want to submit.</p>
+    </div>
+    <div class="feature-card">
+      <h3>3. Complete the application</h3>
+      <p>Fill in your background, education, project details and documents.</p>
+    </div>
+    <div class="feature-card">
+      <h3>4. Track your status</h3>
+      <p>Follow your application's review progress from your dashboard.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js?v=fb-1"></script>
+<script>
+  // If already signed in, go straight to dashboard
+  if (KII.currentUser()) window.location.href = "dashboard.html";
+</script>
+</body>
+</html>

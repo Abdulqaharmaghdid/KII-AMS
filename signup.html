@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account — KII Innovation Program</title>
+<link rel="stylesheet" href="css/style.css?v=fb-1">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="asset/kii_logocl.png" alt="Kurdistan Innovation Institute" class="brand-logo"><div class="brand-txt">KII <span>Innovation Program</span></div></div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="login.html">Sign In</a>
+  </nav>
+</header>
+
+<div class="page-narrow">
+  <div class="card">
+    <h1>Create Account</h1>
+    <p class="sub">Register as an applicant for the KII Innovation Program.</p>
+
+    <div id="alert" class="alert alert-error hidden"></div>
+
+    <form id="signupForm" novalidate>
+      <h3>Full Name <span class="muted">(as shown on your passport)</span></h3>
+      <div class="grid-3">
+        <div class="field">
+          <label>First Name <span class="req">*</span></label>
+          <input type="text" id="firstName" required>
+        </div>
+        <div class="field">
+          <label>Second Name <span class="req">*</span></label>
+          <input type="text" id="secondName" required>
+        </div>
+        <div class="field">
+          <label>Third Name <span class="req">*</span></label>
+          <input type="text" id="thirdName" required>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Passport Number <span class="req">*</span></label>
+        <input type="text" id="passport" maxlength="20" required>
+      </div>
+      <div class="field">
+        <label>Date of Birth <span class="req">*</span></label>
+        <div class="birth-date">
+          <div><label for="dobYear">Year</label><select id="dobYear"></select></div>
+          <div><label for="dobMonth">Month</label><select id="dobMonth"></select></div>
+          <div><label for="dobDay">Day</label><select id="dobDay"></select></div>
+        </div>
+      </div>
+
+      <h3>Contact</h3>
+      <div class="grid-3">
+        <div class="field">
+          <label>Country <span class="req">*</span></label>
+          <select id="country"></select>
+        </div>
+        <div class="field">
+          <label>Province / City <span class="req">*</span></label>
+          <select id="province"></select>
+        </div>
+        <div class="field" id="townField" hidden>
+          <label>Town / district</label>
+          <select id="town"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Phone Number <span class="req">*</span></label>
+        <div class="phone-row">
+          <select id="phoneCode" class="code"></select>
+          <input type="tel" id="phone" placeholder="e.g. 555 123 456" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Email Address <span class="req">*</span></label>
+        <div class="email-row">
+          <input type="text" id="emailLocal" placeholder="username" required>
+          <span class="at">@</span>
+          <select id="emailDomain">
+            <option value="gmail.com" selected>gmail.com</option>
+            <option value="outlook.com">outlook.com</option>
+            <option value="hotmail.com">hotmail.com</option>
+            <option value="yahoo.com">yahoo.com</option>
+            <option value="icloud.com">icloud.com</option>
+            <option value="__custom">Other domain (type full address)</option>
+          </select>
+        </div>
+        <input type="email" id="emailFull" placeholder="name@example.com" class="hidden" style="margin-top:8px">
+        <div class="hint">This email will be your sign-in ID and will only be asked once.</div>
+      </div>
+
+      <div class="field">
+        <label>Organization</label>
+        <input type="text" id="organization" placeholder="University, company or institution">
+      </div>
+
+      <div class="field">
+        <label>Website / LinkedIn</label>
+        <input type="url" id="website" placeholder="https://…">
+      </div>
+
+      <h3>Security</h3>
+      <div class="grid-2">
+        <div class="field">
+          <label>Password <span class="req">*</span></label>
+          <input type="password" id="password" minlength="8" required>
+          <div class="hint">At least 8 characters, with letters and numbers.</div>
+        </div>
+        <div class="field">
+          <label>Confirm Password <span class="req">*</span></label>
+          <input type="password" id="password2" required>
+        </div>
+      </div>
+
+      <label class="checkbox-line mt-2">
+        <input type="checkbox" id="privacyConsent">
+        <span>I agree that KII may store and process my personal data for the purpose of evaluating my
+        application and running the Innovation Program. My data will be shared only with KII staff and
+        appointed expert reviewers, and I can request its deletion at any time.</span>
+      </label>
+      <button type="submit" class="btn btn-block mt-2">Create Account</button>
+      <p class="text-center muted mt-2">Already have an account? <a href="login.html">Sign in</a></p>
+    </form>
+  </div>
+</div>
+
+<script src="js/common.js?v=fb-1"></script>
+<script src="js/application-locations.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
