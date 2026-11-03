@@ -1628,6 +1628,7 @@ function printProcDoc(a, p) {
     th{background:#f0f7f3;width:190px;color:#0a2c1e}
     .amt{font-size:1.15rem;font-weight:800;color:#166e4a}
     .sigs{display:flex;gap:40px;margin-top:64px}.sig{flex:1;border-top:1.5px solid #14202b;padding-top:8px;font-size:.82rem;color:#475569}
+    .sig b{display:block;font-size:.95rem;color:#14202b;min-height:1.2em}
     .foot{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:.72rem;color:#94a3b8;text-align:center}
     @media print{body{padding:12mm}.printbtn{display:none}}
     .printbtn{margin-top:24px;padding:10px 26px;background:#166e4a;color:#fff;border:0;border-radius:8px;font-size:.9rem;cursor:pointer}
@@ -1653,9 +1654,11 @@ function printProcDoc(a, p) {
     <tr><th>Requested by</th><td>${escA(p.requestedBy || "—")}</td></tr>
     <tr><th>Approved by</th><td>${escA(p.approvedBy || "—")}${p.approvedAt ? " · " + amsFmtDate(p.approvedAt) : ""}</td></tr>
   </tbody></table>
-  <div class="sigs"><div class="sig">Requested by — name &amp; signature</div>
-    <div class="sig">Approved by — name &amp; signature</div>
-    <div class="sig">Finance Officer — name &amp; signature</div></div>
+  <div class="sigs">
+    <div class="sig"><b>${escA(p.requestedBy || "")}</b>Requested by — name &amp; signature</div>
+    <div class="sig"><b>${escA(p.approvedBy || "")}</b>Approved by — name &amp; signature</div>
+    <div class="sig"><b>${escA(p.paidBy || "")}</b>Finance Officer — name &amp; signature</div>
+  </div>
   <div class="foot">Kurdistan Innovation Institute · This ${isPo ? "purchase order" : "purchase request"} was issued through the KII Application Management System · ${escA(p.poId || p.id)}</div>
   <button class="printbtn" onclick="window.print()">Print / Save as PDF</button>
   </body></html>`);
