@@ -45,6 +45,7 @@ const api = (p, opts = {}) => fetch(BASE + p, { ...opts, headers: { "X-KII": "1"
       const fid = emailA + "/idea1/merged/cv";
       await KII.saveFile(fid, new File(["hello from A"], "cv.pdf", { type: "application/pdf" }));
       app.data.personal.files = { cv: [{ name: "cv.pdf", type: "application/pdf", size: 12, fileId: fid }] };
+      app.submitted = true; app.submittedAt = new Date().toISOString(); // staff only see submitted applications
       KII.saveApplication(emailA, app); KII.selectApplication(emailA, "idea1");
     }, { app, emailA });
     const codeA = await A.evaluate(() => KII.nextApplicantCode("Education"));

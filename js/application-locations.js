@@ -213,7 +213,8 @@ window.KIILocations = (() => {
     "Karbala", "Hillah", "Nasiriyah", "Amarah", "Kut", "Diwaniyah", "Samawah", "Baqubah", "Ramadi", "Fallujah", "Tikrit"];
   const townRegions = ["Erbil", "Sulaimani", "Kirkuk", "Halabja", "Duhok"];
   const mainCities = () => [...iraqMain, "Other"];
-  const towns = gov => [...(iraqRegions[gov] || [])].sort((a, b) => a.localeCompare(b));
+  /* "City center" first: applicants living in the governorate's city itself have no district to pick */
+  const towns = gov => ["City center", ...(iraqRegions[gov] || []).sort((a, b) => a.localeCompare(b))];
   const governorateOf = city => townToRegion[normalize(canonicalCity("Iraq", city))] ||
     Object.keys(iraqRegions).find(g => normalize(g) === normalize(city));
   /* Universities grouped by governorate: selecting "Erbil" also offers institutions in its towns (e.g. Koya). */

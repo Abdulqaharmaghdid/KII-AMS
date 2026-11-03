@@ -307,11 +307,13 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
 
   const adminDom = page("admin.html"), a = adminDom.window;
   a.KII.addUser(user); a.KII.selectApplication(user.email, "idea-b");
-  for (const idea of w.KII.getApplications(user.email)) a.KII.saveApplication(user.email, idea);
+  for (const idea of w.KII.getApplications(user.email)) a.KII.saveApplication(user.email, { ...idea, submitted: true });
+  a.KII.saveApplication(user.email, { id: "draft-hidden", schemaVersion: 3, startedAt: new Date().toISOString(), status: "InProgress", submitted: false, completedSections: [], data: {}, ownerEmail: user.email });
   new vm.Script(read("js/ams.js") + "; window.AMSApi = { amsInit, amsSyncPortal, amsGetApplicants, amsSaveApplicants }; amsRequireStaff = () => ({id:'admin-test', name:'Admin', active:true, role:'master_admin', perms:ALL_PERMS});").runInContext(adminDom.getInternalVMContext());
   a.AMSApi.amsInit();
   let records = a.AMSApi.amsGetApplicants();
   check(records.length === 2 && records[0].id !== records[1].id, "Two AMS records for one account");
+  check(!records.some(r => r.portalData?.applicationId === "draft-hidden"), "Unsubmitted drafts are hidden from staff");
   const recordA = records.find(r => r.portalData.applicationId === "idea-a");
   check(recordA.budgetTotals.USD === 32100, "AMS totals in selected currency");
   check(recordA.uploads.some(f => f.name === "resume.pdf"), "Moved personal CV synchronized");

@@ -16,7 +16,7 @@ if (user) {
     app = KII.getApplications(user.email)[0] || null;
     if (app) KII.selectApplication(user.email, app.id || "legacy");
   }
-  document.getElementById("startBtn").addEventListener("click", () => {
+  document.getElementById("startBtn").addEventListener("click", async () => {
     const openDrafts = KII.getApplications(user.email).filter(a => !a.submitted && a.status !== "Withdrawn");
     if (openDrafts.length >= 3) {
       alert("You can have up to 3 applications in progress. Submit, finish, or delete one before starting another idea.");
@@ -35,6 +35,7 @@ if (user) {
     };
     if (!KII.saveApplication(user.email, app)) return;
     KII.selectApplication(user.email, app.id);
+    await window.KIIServer?.flush?.(); // the new idea must reach the server before the form page loads
     window.location.href = "application.html?application=" + encodeURIComponent(app.id);
   });
   document.getElementById("newIdeaBtn").addEventListener("click", () => document.getElementById("startBtn").click());
@@ -112,11 +113,13 @@ if (user) {
     document.getElementById("openBtn").textContent = app.submitted || withdrawn ? "View Application" : "Open Application";
   }
 
-  document.getElementById("openBtn").addEventListener("click", () => {
+  document.getElementById("openBtn").addEventListener("click", async () => {
+    await window.KIIServer?.flush?.();
     window.open("application.html?application=" + encodeURIComponent(app.id || "legacy"), "_blank");
   });
 
-  document.getElementById("pdfBtn").addEventListener("click", () => {
+  document.getElementById("pdfBtn").addEventListener("click", async () => {
+    await window.KIIServer?.flush?.();
     window.open("application.html?application=" + encodeURIComponent(app.id || "legacy") + "&s=review&print=1", "_blank");
   });
 

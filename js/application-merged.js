@@ -860,6 +860,7 @@
         <header class="report-head">
           <div class="report-head-top">
             <img src="asset/kii_logocl.png" alt="Kurdistan Innovation Institute" class="report-logo">
+            <img id="reportPhoto" class="report-photo hidden" alt="Applicant photograph">
             <div class="report-head-side">
               <div class="report-status ${locked() ? "ok" : incomplete.length ? "warn" : "ok"}">
                 ${locked() ? (app.submitted ? "Submitted" : "Withdrawn") : incomplete.length ? `${incomplete.length} section(s) need attention` : "Ready to submit"}
@@ -907,7 +908,20 @@
     }
     $("#printReportBtn")?.addEventListener("click", () => window.print());
     updateSubmit();
-    if (locked() && params.get("print") === "1" && !renderReview._printed) { renderReview._printed = true; setTimeout(() => window.print(), 400); }
+    /* show the applicant's photograph in the report when one was uploaded */
+    const photoMeta = (app.data.personal?.files?.photo || [])[0];
+    const photoReady = photoMeta?.fileId
+      ? KII.getFile(photoMeta.fileId).then(f => {
+          if (!f) return;
+          const img = document.getElementById("reportPhoto");
+          if (img) { img.src = URL.createObjectURL(f); img.classList.remove("hidden"); }
+        }).catch(() => { })
+      : Promise.resolve();
+    /* wait for the photo (if any) before auto-printing so it appears in the PDF */
+    if (locked() && params.get("print") === "1" && !renderReview._printed) {
+      renderReview._printed = true;
+      photoReady.then(() => setTimeout(() => window.print(), 200));
+    }
   }
   function updateSubmit() {
     $("#continueBtn").disabled = locked() || !app.declarations?.truth || KII.deadlinePassed() ||
@@ -1011,6 +1025,7 @@
     let uploadError = null;
     try { await collect(); } catch (error) { uploadError = error.message; }
     await persist(); KII.selectApplication(user.email, app.id || "legacy");
+    await window.KIIServer?.flush?.(); // draft must reach the server before the dashboard page loads
     if (uploadError) {
       showError(uploadError + " Your other answers were saved. Fix the upload and click Save & Exit again.");
       return;

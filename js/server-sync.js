@@ -68,7 +68,7 @@
   } else { origRemove.call(localStorage, "kii_admin_session"); origRemove.call(localStorage, "kii_admin_session_seen"); }
 
   /* ---------- change tracking ---------- */
-  const dirty = new Set(); let scheduled = false, retry = null, flushing = false;
+  const dirty = new Set(); let scheduled = false, retry = null, flushing = null;
   const parse = v => { try { return v == null ? null : JSON.parse(v); } catch { return undefined; } };
   function diff(k, b, n) {
     if (n === b) return null;
@@ -107,14 +107,15 @@
   }
   function flush() {
     scheduled = false;
-    if (flushing) { scheduled = true; return; } // one request at a time; rerun after it lands
+    /* one request at a time; callers that await this get the in-flight promise so a second
+       call cannot overtake the first — a rerun is queued for when it lands */
+    if (flushing) { scheduled = true; return flushing; }
     const keys = [...dirty]; dirty.clear();
     const snap = new Map(), ops = [];
     for (const k of keys) { const v = localStorage.getItem(k); snap.set(k, v); const op = diff(k, base[k] ?? null, v); if (op) ops.push(op); }
-    if (!ops.length) return;
-    flushing = true;
+    if (!ops.length) return Promise.resolve();
     // keepalive lets a small save finish while the page is closing; the size cap switches big ones to a normal request
-    post("/api/state", { ops }, JSON.stringify({ ops }).length < 60000).then(r => {
+    flushing = post("/api/state", { ops }, JSON.stringify({ ops }).length < 60000).then(r => {
       if (r && r.ok) {
         for (const [k, v] of snap) { if (v == null) delete base[k]; else base[k] = v; }
         if ((r.json.rejected || []).length) console.warn("KII server did not accept:", r.json.rejected);
@@ -124,9 +125,10 @@
         banner(r && r.status === 401 ? "Your session has ended. Please sign in again." : "Not saved to the KII server yet. Retrying…");
         clearTimeout(retry); retry = setTimeout(schedule, 3000);
       }
-      flushing = false;
+      flushing = null;
       if (scheduled) flush();
     });
+    return flushing;
   }
   function schedule() { if (!scheduled) { scheduled = true; queueMicrotask(flush); } }
   S.flush = flush;

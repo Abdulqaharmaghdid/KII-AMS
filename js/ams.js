@@ -249,7 +249,9 @@ function amsCollectUploads(data) {
 function amsSyncPortal() {
   const previous = amsGetApplicants();
   const list = previous.filter(a => {
-    if (!a.portal || a.portalData?.submitted || a.portalData?.withdrawn || a.portalData?.revisionNote) return true;
+    if (!a.portal) return true;
+    /* staff only ever see submitted, withdrawn or sent-back applications — drafts stay private to the applicant */
+    if (a.portalData && !a.portalData.submitted && !a.portalData.withdrawn && !a.portalData.revisionNote) return false;
     const email = a.portalData?.email || a.applicantEmail;
     return !email || !!KII.getApplication(email, a.portalData?.applicationId || "legacy");
   });
@@ -263,6 +265,9 @@ function amsSyncPortal() {
     const email = app?.ownerEmail || k.slice("kii_app_".length).split("::")[0];
     const user = users.find(u => String(u.email).toLowerCase() === email.toLowerCase());
     if (!user || !app) continue;
+    /* a draft is private to its applicant until it is submitted (withdrawn and revision-requested
+       applications keep their record so staff history is preserved) */
+    if (!app.submitted && app.status !== "Withdrawn" && !app.revisionNote) continue;
 
     const id = KII.portalId(email, app);
     const data = app.activeData || app.data || {};
@@ -293,6 +298,13 @@ function amsSyncPortal() {
       applicantEmail: email,
       code: app.applicantCode || "",
       applicantOrg: user.organization || "",
+      /* identity details for staff review — hidden from evaluators when blind review is on */
+      applicantInfo: {
+        name: fullName, email, phone: user.phone || "", passport: user.passport || "",
+        dob: user.dob || "", country: user.country || "", city: user.city || "",
+        town: user.town || "", organization: user.organization || "", website: user.website || "",
+        photoFileId: data.personal?.files?.photo?.[0]?.fileId || "",
+      },
       applicantPhone: app.data?.personal ? (app.data.personal.phoneCode || "") + " " + (app.data.personal.phone || "") : user.phone,
       application: appCopy,
       uploads: amsCollectUploads(data),

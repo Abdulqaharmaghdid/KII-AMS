@@ -322,6 +322,11 @@ h3 { font-size: 1.02rem; margin: 22px 0 4px; color: var(--primary); }
 .report-head { padding: 26px 30px 20px; border-bottom: 3px solid var(--primary); }
 .report-head-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .report-logo { height: 58px; width: auto; }
+.report-photo {
+  width: 64px; height: 78px; object-fit: cover; border-radius: 9px;
+  border: 1px solid #e2e8f0; background: #f8fafc; flex-shrink: 0;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
 .report-head-main { margin-top: 16px; }
 .report-kicker { font-size: .72rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--primary); font-weight: 700; }
 .report-title { margin: 6px 0 4px; font-size: 1.5rem; color: #0f172a; }
@@ -575,3 +580,13 @@ html.kii-fade { opacity: 0; transition: opacity .16s ease; }
 html.kii-fade.kii-in { opacity: 1; }
 html.kii-fade.kii-out { opacity: 0; transition-duration: .12s; }
 @media (prefers-reduced-motion: reduce) { html.kii-fade { opacity: 1; transition: none; } }
+
+/* ===== password visibility toggle ===== */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap input { padding-right: 44px; width: 100%; box-sizing: border-box; }
+.pw-eye {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  border: 0; background: none; cursor: pointer; color: #94a3b8; padding: 4px; display: flex; align-items: center;
+}
+.pw-eye svg { width: 19px; height: 19px; }
+.pw-eye:hover, .pw-eye.on { color: #166e4a; }

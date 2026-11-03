@@ -554,7 +554,7 @@ function viewApplicant(el) {
   el.innerHTML = `
     <div class="crumbs"><a href="?v=applicants">Applicants</a><span class="sep">›</span><b>${escA(a.name)}</b></div>
     <div class="app-banner">
-      <div class="logo"><span style="color:#22c55e">${IC.leaf}</span>${escA(a.logoText || a.name.slice(0, 2).toUpperCase())}</div>
+      <div class="logo">${!blindReview() && a.applicantInfo?.photoFileId ? `<img class="app-photo" data-photo="${escA(a.applicantInfo.photoFileId)}" alt="Applicant photo">` : `<span style="color:#22c55e">${IC.leaf}</span>${escA(a.logoText || a.name.slice(0, 2).toUpperCase())}`}</div>
       <div class="who">
         <h2>${escA(a.name)} ${chipStatus(a.status)}
           ${a.outcome ? `<span class="chip" style="background:${OUTCOME_COLORS[a.outcome]}22;color:${OUTCOME_COLORS[a.outcome]}">${a.outcome}</span>` : ""}
@@ -607,6 +607,11 @@ function viewApplicant(el) {
   });
 
   renderTab(a, $ams("#tabBody"));
+
+  /* load the applicant's uploaded photo (staff only; hidden under blind review) */
+  $$ams(".app-photo[data-photo]", el).forEach(img => {
+    KII.getFile(img.dataset.photo).then(f => { if (f) img.src = URL.createObjectURL(f); }).catch(() => { });
+  });
 }
 
 function renderTab(a, body) {
@@ -698,9 +703,14 @@ function tabOverview(a, body) {
     <div class="grid-2col">
       <div class="ams-card ${blindReview() ? "hidden" : ""}"><h3>Applicant Profile</h3>
         <div class="detail-row"><span class="k">Applicant</span><span class="v">${escA(a.applicantName || "—")}</span></div>
+        ${a.applicantInfo?.passport ? `<div class="detail-row"><span class="k">Passport No.</span><span class="v"><b>${escA(a.applicantInfo.passport)}</b></span></div>` : ""}
         <div class="detail-row"><span class="k">Email</span><span class="v">${escA(a.applicantEmail || "—")}</span></div>
         <div class="detail-row"><span class="k">Phone</span><span class="v">${escA(a.applicantPhone || "—")}</span></div>
+        ${a.applicantInfo?.dob ? `<div class="detail-row"><span class="k">Date of birth</span><span class="v">${amsFmtDate(a.applicantInfo.dob)}</span></div>` : ""}
+        ${a.applicantInfo ? `<div class="detail-row"><span class="k">Address</span><span class="v">${escA([a.applicantInfo.town && a.applicantInfo.town !== "City center" ? a.applicantInfo.town : "", a.applicantInfo.city, a.applicantInfo.country].filter(Boolean).join(", ") || "—")}</span></div>` : ""}
         <div class="detail-row"><span class="k">Organization</span><span class="v">${escA(a.applicantOrg || "—")}</span></div>
+        ${a.applicantInfo?.website ? `<div class="detail-row"><span class="k">Website / LinkedIn</span><span class="v">${escA(a.applicantInfo.website)}</span></div>` : ""}
+        <div class="detail-row"><span class="k">Application ID</span><span class="v"><b>${escA(a.code || "—")}</b></span></div>
         <div class="detail-row"><span class="k">Applied</span><span class="v">${amsFmtDate(a.appliedDate)}</span></div>
         ${a.portal ? `<div class="sub2" style="margin-top:8px"><a href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=application">View full application →</a></div>` : ""}
       </div>
