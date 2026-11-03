@@ -256,6 +256,7 @@ function daysUntil(iso) { return Math.ceil((new Date(iso) - Date.now()) / 864000
 
 function go(url) { nav(url); }
 function saveAndReload(app) {
+  syncFin(app); // committed/spent always follow the procurement items
   const l = amsGetApplicants();
   const i = l.findIndex(x => x.id === app.id);
   l[i] = app;
@@ -1595,51 +1596,143 @@ function tabDocs(a, body) {
   bindUploadViewers(body);
 }
 
-/* ----- Procurement tab ----- */
-function tabProc(a, body) {
-  body.innerHTML = `
+/* ----- Procurement (shared by the Procurement and Financial Support tabs) ----- */
+const PROC_CATEGORIES = ["Human Being", "Smart Cities", "House Ware", "Sustainable Energy", "Health",
+  "Education", "Transportation", "IT", "Fashion", "Automation", "Operations / Administration", "Other"];
+const supportCurrency = a => a.application?.support?.reqCurrency === "IQD" ? "IQD" : "USD";
+const procMoney = (a, n) => `${Number(n || 0).toLocaleString()} ${supportCurrency(a)}`;
+
+/* committed = approved but unpaid; spent = paid — always derived from the procurement items */
+function syncFin(a) {
+  if (!(a.procurement || []).length) return;
+  a.committed = a.procurement.filter(p => p.status === "Approved").reduce((s, p) => s + (+p.amount || 0), 0);
+  a.spent = a.procurement.filter(p => p.status === "Paid").reduce((s, p) => s + (+p.amount || 0), 0);
+}
+const nextPrId = (a, prefix) => prefix + "-" + new Date().getFullYear() + "-" +
+  String((a.procurement || []).filter(p => String(p.id).startsWith(prefix)).length + 1).padStart(3, "0");
+
+/* printable PR / PO document on KII letterhead */
+function printProcDoc(a, p) {
+  const devArea = a.application?.instruction?.devArea || "";
+  const isPo = p.status === "Approved" || p.status === "Paid";
+  const w = window.open("", "_blank");
+  if (!w) return alert("Please allow pop-ups to print the document.");
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escA(p.poId || p.id)} — KII</title>
+  <style>
+    body{font:14px/1.55 'Segoe UI',Arial,sans-serif;color:#14202b;margin:0;padding:34px 40px}
+    .hd{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #166e4a;padding-bottom:14px}
+    .hd img{height:56px}.hd .rt{text-align:right;font-size:12px;color:#64748b}
+    h1{font-size:1.35rem;color:#0a2c1e;margin:20px 0 4px;text-transform:uppercase;letter-spacing:1px}
+    .nums{display:flex;gap:34px;margin:10px 0 20px;font-size:.9rem}.nums b{display:block;font-size:1rem;color:#0a2c1e}
+    table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border:1px solid #d6dee6;padding:9px 12px;font-size:.9rem;text-align:left}
+    th{background:#f0f7f3;width:190px;color:#0a2c1e}
+    .amt{font-size:1.15rem;font-weight:800;color:#166e4a}
+    .sigs{display:flex;gap:40px;margin-top:64px}.sig{flex:1;border-top:1.5px solid #14202b;padding-top:8px;font-size:.82rem;color:#475569}
+    .foot{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:.72rem;color:#94a3b8;text-align:center}
+    @media print{body{padding:12mm}.printbtn{display:none}}
+    .printbtn{margin-top:24px;padding:10px 26px;background:#166e4a;color:#fff;border:0;border-radius:8px;font-size:.9rem;cursor:pointer}
+  </style></head><body>
+  <div class="hd"><img src="${location.origin}/asset/kii_logocl.png" alt="KII">
+    <div class="rt">Kurdistan Innovation Institute<br>Innovation Program — Procurement</div></div>
+  <h1>${isPo ? "Purchase Order" : "Purchase Request"}</h1>
+  <div class="nums">
+    <div>PR Number<b>${escA(p.id)}</b></div>
+    ${p.poId ? `<div>PO Number<b>${escA(p.poId)}</b></div>` : ""}
+    <div>Status<b>${escA(p.status)}</b></div>
+    <div>Date<b>${amsFmtDate(p.date)}</b></div>
+  </div>
+  <table><tbody>
+    <tr><th>Project / Applicant</th><td>${escA(a.name)}${a.applicantName ? " — " + escA(a.applicantName) : ""} (${escA(a.code || "—")})</td></tr>
+    <tr><th>Sector</th><td>${escA(a.sector || "—")}</td></tr>
+    <tr><th>KII Development Category</th><td>${escA(devArea || p.category || "—")}</td></tr>
+    <tr><th>Item / Service</th><td><b>${escA(p.title)}</b></td></tr>
+    <tr><th>Procurement Category</th><td>${escA(p.category || "—")}</td></tr>
+    <tr><th>Vendor / Supplier</th><td>${escA(p.vendor || "—")}</td></tr>
+    <tr><th>Description / Justification</th><td>${escA(p.description || "—")}</td></tr>
+    <tr><th>Amount</th><td class="amt">${procMoney(a, p.amount)}</td></tr>
+    <tr><th>Requested by</th><td>${escA(p.requestedBy || "—")}</td></tr>
+    <tr><th>Approved by</th><td>${escA(p.approvedBy || "—")}${p.approvedAt ? " · " + amsFmtDate(p.approvedAt) : ""}</td></tr>
+  </tbody></table>
+  <div class="sigs"><div class="sig">Requested by — name &amp; signature</div>
+    <div class="sig">Approved by — name &amp; signature</div>
+    <div class="sig">Finance Officer — name &amp; signature</div></div>
+  <div class="foot">Kurdistan Innovation Institute · This ${isPo ? "purchase order" : "purchase request"} was issued through the KII Application Management System · ${escA(p.poId || p.id)}</div>
+  <button class="printbtn" onclick="window.print()">Print / Save as PDF</button>
+  </body></html>`);
+  w.document.close();
+}
+
+function procCard(a) {
+  return `
     <div class="ams-card">
-      <div class="page-head-row"><h3 style="margin:0">Procurement Requests</h3>
+      <div class="page-head-row"><h3 style="margin:0">Procurement — Requests &amp; Purchase Orders</h3>
         ${can("manage_procurement") ? `<button class="abtn sm" id="togglePrForm">${IC.plus} Create PR</button>` : ""}</div>
       <div id="prFormWrap" class="hidden" style="margin-top:12px">${can("manage_procurement") ? `<form id="prForm" class="inline-form">
         <div class="grid-2">
-          <div><label>Title</label><input name="title" required></div>
-          <div><label>Amount ($)</label><input type="number" name="amount" min="0" required></div>
+          <div><label>Item / service title</label><input name="title" required maxlength="140"></div>
+          <div><label>Vendor / supplier</label><input name="vendor" maxlength="100"></div>
+          <div><label>Procurement category</label><select name="category">${PROC_CATEGORIES.map(c => `<option ${c === (a.application?.instruction?.devArea || "") ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+          <div><label>Amount (${supportCurrency(a)})</label><input type="number" name="amount" min="0" step="any" required></div>
         </div>
+        <div><label>Description / justification</label><textarea name="description" rows="2" maxlength="500"></textarea></div>
         <button class="abtn sm" style="margin-top:10px">Create PR</button>
       </form>` : ""}</div>
-      <table class="tbl"><thead><tr><th>PR #</th><th>Title</th><th>Amount</th><th>Date</th><th>Status</th>${can("manage_financials") ? "<th>Actions</th>" : ""}</tr></thead><tbody>
+      <table class="tbl"><thead><tr><th>PR / PO #</th><th>Item</th><th>Vendor</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr></thead><tbody>
       ${(a.procurement || []).map(p => `<tr>
-        <td><b>${escA(p.id)}</b></td><td>${escA(p.title)}</td><td>${amsMoney(p.amount)}</td>
+        <td><b>${escA(p.id)}</b>${p.poId ? `<div class="sub2">${escA(p.poId)}</div>` : ""}</td>
+        <td><b>${escA(p.title)}</b>${p.category ? `<div class="sub2">${escA(p.category)}</div>` : ""}</td>
+        <td>${escA(p.vendor || "—")}</td><td>${procMoney(a, p.amount)}</td>
         <td>${amsFmtDate(p.date)}</td><td>${chipStatus(p.status)}</td>
-        ${can("manage_financials") ? `<td>${p.status === "Pending" ?
-          `<button class="abtn sm" data-ap="${p.id}">Approve</button>
-           <button class="abtn danger sm" data-rj="${p.id}">Reject</button>` : `<span class="act-dots">${IC.dots}</span>`}</td>` : ""}
-      </tr>`).join("") || '<tr><td colspan="6"><div class="empty-state">No procurement requests.</div></td></tr>'}
+        <td style="white-space:nowrap">
+          ${can("manage_financials") && p.status === "Pending" ?
+            `<button class="abtn sm" data-ap="${p.id}">Approve</button> <button class="abtn danger sm" data-rj="${p.id}">Reject</button>` : ""}
+          ${can("manage_financials") && p.status === "Approved" ? `<button class="abtn sm" data-pd="${p.id}">Mark paid</button>` : ""}
+          <button class="abtn ghost sm" data-print="${p.id}">Print</button>
+        </td>
+      </tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No procurement requests.</div></td></tr>'}
       </tbody></table>
     </div>`;
+}
+function bindProc(a, body) {
   const tg = $ams("#togglePrForm", body);
   if (tg) tg.addEventListener("click", () => $ams("#prFormWrap", body).classList.toggle("hidden"));
   const f = $ams("#prForm", body);
   if (f) f.addEventListener("submit", (e) => {
     e.preventDefault();
     (a.procurement = a.procurement || []).push({
-      id: "PR-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random() * 900) + 100),
-      title: f.title.value, amount: +f.amount.value,
-      status: "Pending", date: new Date().toISOString(),
+      id: nextPrId(a, "PR"), title: f.title.value.trim(), vendor: f.vendor.value.trim(),
+      category: f.category.value, description: f.description.value.trim(),
+      amount: +f.amount.value, currency: supportCurrency(a),
+      status: "Pending", date: new Date().toISOString(), requestedBy: staff.name,
     });
     touch(a, { icon: "pr", title: "PR submitted", desc: f.title.value });
     saveAndReload(a);
   });
   $$ams("[data-ap]", body).forEach(b => b.addEventListener("click", () => {
     const p = a.procurement.find(x => x.id === b.dataset.ap);
-    if (p) { p.status = "Approved"; touch(a, { icon: "pr", title: "PR approved", desc: p.id }); saveAndReload(a); }
+    if (!p) return;
+    p.status = "Approved"; p.poId = p.poId || nextPrId(a, "PO");
+    p.approvedBy = staff.name; p.approvedAt = new Date().toISOString();
+    touch(a, { icon: "pr", title: "PR approved — PO issued", desc: `${p.id} → ${p.poId} (${procMoney(a, p.amount)})` });
+    saveAndReload(a);
   }));
   $$ams("[data-rj]", body).forEach(b => b.addEventListener("click", () => {
     const p = a.procurement.find(x => x.id === b.dataset.rj);
     if (p) { p.status = "Rejected"; touch(a, { icon: "pr", title: "PR rejected", desc: p.id }); saveAndReload(a); }
   }));
+  $$ams("[data-pd]", body).forEach(b => b.addEventListener("click", () => {
+    const p = a.procurement.find(x => x.id === b.dataset.pd);
+    if (!p) return;
+    p.status = "Paid"; p.paidAt = new Date().toISOString(); p.paidBy = staff.name;
+    touch(a, { icon: "pr", title: "PO paid", desc: `${p.poId || p.id} · ${procMoney(a, p.amount)}` });
+    saveAndReload(a);
+  }));
+  $$ams("[data-print]", body).forEach(b => b.addEventListener("click", () => {
+    const p = a.procurement.find(x => x.id === b.dataset.print);
+    if (p) printProcDoc(a, p);
+  }));
 }
+function tabProc(a, body) { body.innerHTML = procCard(a); bindProc(a, body); }
 
 /* ----- Financials tab ----- */
 function tabFin(a, body) {
@@ -1657,8 +1750,9 @@ function tabFin(a, body) {
     </div>
     <div class="ams-card"><h3>Spending</h3>
       <div class="pbar"><i style="width:${a.supportApproved ? Math.min(100, a.spent / a.supportApproved * 100) : 0}%;background:#22c55e"></i></div>
-      <div class="sub2 text-right">${a.supportApproved ? Math.round(a.spent / a.supportApproved * 100) : 0}% of approved support spent</div>
+      <div class="sub2 text-right">${a.supportApproved ? Math.round(a.spent / a.supportApproved * 100) : 0}% of approved support spent${(a.procurement || []).length ? " · " + a.procurement.filter(p => p.status === "Pending").length + " pending PR(s)" : ""}</div>
     </div>
+    ${procCard(a)}
     ${(a.requirements || []).length ? `<div class="ams-card"><h3>Applicant Requirements &amp; Costs</h3>
       <div class="sub2" style="margin:-6px 0 10px">Submitted by the applicant in their application form.</div>
       <table class="tbl"><thead><tr><th>Item</th><th>Type</th><th>Qty</th><th>Est. cost</th><th>Purpose</th></tr></thead><tbody>
@@ -1672,8 +1766,8 @@ function tabFin(a, body) {
       <form id="finForm" class="inline-form">
         <div class="grid-2">
           <div><label>Approved Support ($)</label><input type="number" name="supportApproved" min="0" value="${a.supportApproved || 0}"></div>
-          <div><label>Committed / POs ($)</label><input type="number" name="committed" min="0" value="${a.committed || 0}"></div>
-          <div><label>Spent ($)</label><input type="number" name="spent" min="0" value="${a.spent || 0}"></div>
+          <div><label>Committed / POs ($)</label><input type="number" name="committed" min="0" value="${a.committed || 0}" ${(a.procurement || []).length ? "disabled title='Set automatically by approved POs'" : ""}></div>
+          <div><label>Spent ($)</label><input type="number" name="spent" min="0" value="${a.spent || 0}" ${(a.procurement || []).length ? "disabled title='Set automatically by paid POs'" : ""}></div>
         </div>
         <button class="abtn sm" style="margin-top:10px">Save Financials</button>
       </form></div>` : ""}`;
@@ -1686,6 +1780,7 @@ function tabFin(a, body) {
     touch(a, { icon: "pr", title: "Financials updated", desc: "Support figures updated" });
     saveAndReload(a);
   });
+  bindProc(a, body); // procurement section shares the financial page
 }
 
 /* ----- Decisions tab (structured decisions drive the workflow) ----- */
