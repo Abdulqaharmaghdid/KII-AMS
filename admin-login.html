@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Staff Sign In — KII AMS</title>
+<link rel="icon" type="image/png" href="asset/kii_logocl.png">
 <link rel="stylesheet" href="css/style.css?v=srv-3">
 <style>
   body { background: linear-gradient(135deg, #0c3527, #1e6a4d); min-height: 100vh; }
@@ -58,14 +59,14 @@
     a.textContent = msg;
     a.classList.remove("hidden");
   }
-  document.getElementById("staffLoginForm").addEventListener("submit", (e) => {
+  document.getElementById("staffLoginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("staffEmail").value.trim();
     const pass = document.getElementById("staffPassword").value;
     if (window.KIIServer?.enabled) {
-      const r = KIIServer.post("/api/staff-login", { email, password: pass });
+      const r = await KIIServer.post("/api/staff-login", { email, password: pass });
       if (!r.ok) return showAlert(r.json.error || "Invalid staff email or password.");
-      window.location.href = r.json.mustChangePassword ? "admin.html?pw=1" : "admin.html";
+      window.location.href = r.json.mustChangePassword ? "admin.html?v=settings&pw=1" : "admin.html";
       return;
     }
     const lockId = "staff:" + email;
@@ -83,7 +84,7 @@
     amsUpdateStaff(staff.id, { lastLogin: new Date().toISOString() });
     amsAudit(staff.name, "Signed in", staff.email);
     amsStaffLogin(staff.id);
-    window.location.href = staff.mustChangePassword ? "admin.html?v=srv-3&pw=1" : "admin.html";
+    window.location.href = staff.mustChangePassword ? "admin.html?v=settings&pw=1" : "admin.html";
   });
 </script>
 </body>

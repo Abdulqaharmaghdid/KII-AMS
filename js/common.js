@@ -62,9 +62,9 @@ const KII = {
   formSchemaInfo() { try { return JSON.parse(localStorage.getItem("kii_form_schema")) || null; } catch { return null; } },
   areaPrefixes: { "Human Being": "HUM", "Smart Cities": "SMC", "House Ware": "HSW", "Sustainable Energy": "SER",
     "Health": "HLT", "Education": "EDU", "Transportation": "TRN", "IT": "ITC", "Fashion": "FSH", "Automation": "AUT", "Other": "OTH" },
-  nextApplicantCode(area) {
+  async nextApplicantCode(area) {
     if (window.KIIServer?.enabled) { // unique across all applicants
-      const r = KIIServer.post("/api/code", { area });
+      const r = await KIIServer.post("/api/code", { area });
       if (r.ok && r.json.code) return r.json.code;
     }
     const prefix = this.areaPrefixes[area] || "APP";

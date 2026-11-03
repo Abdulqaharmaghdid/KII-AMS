@@ -53,7 +53,7 @@ if (signupForm) {
   const emailValue = () => emailDomain.value === "__custom" ? emailFull.value.trim()
     : (emailLocal.value.trim() ? emailLocal.value.trim() + "@" + emailDomain.value : "");
 
-  signupForm.addEventListener("submit", (e) => {
+  signupForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const firstName = document.getElementById("firstName").value.trim();
@@ -90,7 +90,7 @@ if (signupForm) {
     if (!document.getElementById("privacyConsent").checked)
       return showAlert("Please accept the privacy notice to create your account.");
     if (window.KIIServer?.enabled) {
-      const r = KIIServer.post("/api/signup", { password, user: { firstName, secondName, thirdName, dob, passport, country, city, town,
+      const r = await KIIServer.post("/api/signup", { password, user: { firstName, secondName, thirdName, dob, passport, country, city, town,
         phone: phoneCode + " " + phone, email, organization, website, privacyConsentAt: new Date().toISOString() } });
       if (!r.ok) return showAlert(r.json.error || "Could not create the account. Please try again.");
       window.location.href = "dashboard.html";
@@ -117,12 +117,12 @@ if (signupForm) {
 /* ---------- Sign In ---------- */
 const loginForm = document.getElementById("loginForm");
 if (loginForm) {
-  loginForm.addEventListener("submit", (e) => {
+  loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value;
     if (window.KIIServer?.enabled) {
-      const r = KIIServer.post("/api/login", { email, password });
+      const r = await KIIServer.post("/api/login", { email, password });
       if (!r.ok) return showAlert(r.json.error || "Invalid email or password.");
       window.location.href = "dashboard.html";
       return;

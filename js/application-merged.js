@@ -463,13 +463,13 @@
     }
     return answers;
   }
-  function persist() {
+  async function persist() {
     app.activeData = Object.fromEntries(schema.filter(s => s.id !== "review").map(s => [s.id, active(s.fields, app.data[s.id] || {})]));
     app.reviewSections = schema.filter(s => s.id !== "review").map(s => ({ id: s.id, title: s.title, answers: summary(s.fields, app.data[s.id] || {}) }));
     app.completedSections = schema.filter(s => s.id !== "review" && !validate(s.fields, app.data[s.id] || {}).length).map(s => s.id);
     if (app.submitted) app.completedSections.push("review");
     app.category = app.data.innovation?.sector || app.category || "";
-    if (!app.applicantCode && app.data.instruction?.devArea) app.applicantCode = KII.nextApplicantCode(app.data.instruction.devArea);
+    if (!app.applicantCode && app.data.instruction?.devArea) app.applicantCode = await KII.nextApplicantCode(app.data.instruction.devArea);
     if (!KII.saveApplication(user.email, app)) throw new Error("Your changes could not be saved. Please free browser storage and try again.");
   }
   function videoSeconds(file) {
@@ -978,7 +978,7 @@
     const nav = e.target.closest("[data-step], [data-edit]");
     if (!nav) return;
     e.preventDefault();
-    await action(async () => { await collect(); if (!locked()) persist(); render(nav.dataset.step || nav.dataset.edit); });
+    await action(async () => { await collect(); if (!locked()) await persist(); render(nav.dataset.step || nav.dataset.edit); });
   });
   $("#continueBtn").addEventListener("click", () => action(async () => {
     if (current === "review") {
@@ -993,31 +993,31 @@
         (app.revisionHistory ||= []).push({ note: app.revisionNote, resubmittedAt: app.resubmittedAt }); app.revisionNote = "";
       } else app.submittedAt = new Date().toISOString();
       app.declarations.at = new Date().toISOString(); app.submitted = true; app.status = "Done";
-      try { persist(); } catch (error) { app = previous; throw error; }
+      try { await persist(); } catch (error) { app = previous; throw error; }
       render("review"); return;
     }
     await collect();
     if (!locked()) {
-      persist();
+      await persist();
       const errors = validate(schema.find(s => s.id === current).fields, app.data[current]);
       if (errors.length) { showError(errors.join("\n")); return; }
     }
     render(schema[schema.findIndex(s => s.id === current) + 1].id);
   }));
   $("#backBtn").addEventListener("click", () => action(async () => {
-    await collect(); if (!locked()) persist(); render(schema[Math.max(0, schema.findIndex(s => s.id === current) - 1)].id);
+    await collect(); if (!locked()) await persist(); render(schema[Math.max(0, schema.findIndex(s => s.id === current) - 1)].id);
   }));
   $("#saveBtn").addEventListener("click", () => action(async () => {
     let uploadError = null;
     try { await collect(); } catch (error) { uploadError = error.message; }
-    persist(); KII.selectApplication(user.email, app.id || "legacy");
+    await persist(); KII.selectApplication(user.email, app.id || "legacy");
     if (uploadError) {
       showError(uploadError + " Your other answers were saved. Fix the upload and click Save & Exit again.");
       return;
     }
     location.href = "dashboard.html";
   }));
-  persist(); render(current);
+  await persist(); render(current);
   // Exposes the form definition for focused local regression tests without a server.
   window.KIIMergedForm = { schema, validate, migrate, active, summary, render, collect, persist, get application() { return app; } };
 })().catch(error => {

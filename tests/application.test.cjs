@@ -170,7 +170,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   check(!universityInput.value && !educationRow.querySelector('[data-key="city"]').value, "Country change clears city and university together");
   set("city", "Duhok");
   check(body.querySelector('[data-key="postal"]').value === "42001", "City selection fills central postal suggestion");
-  set("postal", "42002"); await form.collect(); form.persist(); form.render("personal");
+  set("postal", "42002"); await form.collect(); await form.persist(); form.render("personal");
   check(body.querySelector('[data-key="postal"]').value === "42002", "Manual postal override survives saving and reopening");
   set("city", "Halabja");
   check(body.querySelector('[data-key="postal"]').value === "46006", "New city replaces old postal suggestion");
@@ -214,7 +214,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   const selectedFinance = body.querySelector('[data-key="supportTypes"][value="Financial support"]');
   selectedFinance.checked = false; selectedFinance.dispatchEvent(new w.Event("change", { bubbles: true }));
   check(request.hidden, "Financial table hides when not selected");
-  form.persist();
+  await form.persist();
   check(!form.application.activeData.support.requirements, "Hidden financial requests excluded from staff data");
   check(form.application.data.support.requirements.length === 2, "Hidden answers retained when toggling");
   form.application.data.support = copy(finance);
@@ -230,7 +230,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   form.render("personal");
   const cvInput = body.querySelector('[data-key="cv"]');
   Object.defineProperty(cvInput, "files", { configurable: true, value: [new w.File(["pdf"], "resume.pdf", { type: "application/pdf" })] });
-  await form.collect(); form.persist();
+  await form.collect(); await form.persist();
   check(form.application.data.personal.files.cv.length === 1 && storedFiles.size === 1, "PDF stored and metadata saved");
   const originalCvId = form.application.data.personal.files.cv[0].fileId;
   form.render("personal");

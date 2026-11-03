@@ -1,6 +1,7 @@
 /* ===== KII server sync =====
    Loaded first on every page. When the pages are served by server/server.cjs this:
-   1) loads the data the signed-in user may see from the server into this tab's storage,
+   1) reads the data the signed-in user may see, delivered inside the page as window.__KII_STATE__,
+      into this tab's storage — no blocking request is needed at startup,
    2) sends every change back to the server (record by record, so people never overwrite each other),
    3) exposes KIIServer.post() for sign-in, sign-up and application codes.
    Opened without the server (e.g. a plain static host or the automated tests) it does nothing. */
@@ -11,41 +12,55 @@
   const CLIENT_ONLY = new Set(["kii_session", "kii_admin_session", "kii_admin_session_seen", "kii_login_locks", "kii_files_pending"]);
   const synced = k => typeof k === "string" && k.startsWith("kii_") && !CLIENT_ONLY.has(k);
 
-  function request(method, url, body) {
-    const x = new XMLHttpRequest();
+  async function post(path, body, keepalive = false) {
     try {
-      x.open(method, url, false); // synchronous on purpose: a save must finish before the page navigates away
-      x.setRequestHeader("X-KII", "1");
-      if (body !== undefined) x.setRequestHeader("Content-Type", "application/json");
-      x.send(body === undefined ? null : JSON.stringify(body));
+      const r = await fetch(path, { method: "POST", keepalive,
+        headers: { "X-KII": "1", "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+      let data = {}; try { data = await r.json(); } catch { }
+      return { status: r.status, ok: r.ok, json: data };
     } catch { return null; }
-    let data = null; try { data = JSON.parse(x.responseText); } catch { }
-    return { status: x.status, ok: x.status >= 200 && x.status < 300, json: data || {} };
   }
   const S = window.KIIServer = {
     enabled: false, session: {},
-    post(path, body) { return request("POST", path, body || {}) || { ok: false, status: 0, json: { error: "The KII server is not reachable. Please check that it is running." } }; },
+    /* always async: login/sign-up handlers await it; it never blocks the page */
+    async post(path, body) {
+      return await post(path, body) ||
+        { ok: false, status: 0, json: { error: "The KII server is not reachable. Please check that it is running." } };
+    },
   };
   if (location.protocol === "file:") return;
-  let state = request("GET", "/api/state");
-  if (!state || !state.ok || !state.json.enabled) return; // static mode: everything stays in this browser
+  const state = window.__KII_STATE__ || null;
+  if (!state || !state.enabled) {
+    /* The page was not served by server.cjs (plain static host or the test suite) — nothing to do.
+       If some other server answers /api/state, load its data and reload once so the page scripts see it. */
+    fetch("/api/state").then(r => r.json()).then(j => {
+      if (!j || !j.enabled || sessionStorage.getItem("kii_booted")) return;
+      sessionStorage.setItem("kii_booted", "1");
+      for (const [k, v] of Object.entries(j.data || {})) if (synced(k)) localStorage.setItem(k, v);
+      location.reload();
+    }).catch(() => { });
+    return;
+  }
+  sessionStorage.removeItem("kii_booted");
 
   const proto = Storage.prototype, origSet = proto.setItem, origRemove = proto.removeItem;
   const local = {};
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (synced(k)) local[k] = localStorage.getItem(k); }
 
   /* first run on an empty server: offer to move this browser's existing data into it */
-  if (state.json.canImport && Object.keys(local).some(k => k.startsWith("kii_app_") || k === "kii_users") &&
+  if (state.canImport && Object.keys(local).some(k => k.startsWith("kii_app_") || k === "kii_users") &&
       confirm("This browser contains KII data saved before the local server was set up.\n\nUpload it to the server now so every device can use it?")) {
-    const r = request("POST", "/api/import", { data: local });
-    if (r && r.ok) { origSet.call(localStorage, "kii_files_pending", "1"); state = request("GET", "/api/state") || state; }
+    post("/api/import", { data: local }).then(r => {
+      if (r && r.ok) { origSet.call(localStorage, "kii_files_pending", "1"); location.reload(); }
+    });
+    return; // the reload brings the imported state back inside the page
   }
 
   S.enabled = true;
-  S.session = state.json.session || {};
+  S.session = state.session || {};
   const base = {};
   for (const k of Object.keys(local)) origRemove.call(localStorage, k);
-  for (const [k, v] of Object.entries(state.json.data || {})) { origSet.call(localStorage, k, v); base[k] = v; }
+  for (const [k, v] of Object.entries(state.data || {})) { origSet.call(localStorage, k, v); base[k] = v; }
   if (S.session.applicant) origSet.call(localStorage, "kii_session", S.session.applicant); else origRemove.call(localStorage, "kii_session");
   if (S.session.staff) {
     origSet.call(localStorage, "kii_admin_session", S.session.staff);
@@ -53,7 +68,7 @@
   } else { origRemove.call(localStorage, "kii_admin_session"); origRemove.call(localStorage, "kii_admin_session_seen"); }
 
   /* ---------- change tracking ---------- */
-  const dirty = new Set(); let scheduled = false, retry = null;
+  const dirty = new Set(); let scheduled = false, retry = null, flushing = false;
   const parse = v => { try { return v == null ? null : JSON.parse(v); } catch { return undefined; } };
   function diff(k, b, n) {
     if (n === b) return null;
@@ -92,19 +107,26 @@
   }
   function flush() {
     scheduled = false;
+    if (flushing) { scheduled = true; return; } // one request at a time; rerun after it lands
     const keys = [...dirty]; dirty.clear();
-    const ops = keys.map(k => diff(k, base[k] ?? null, localStorage.getItem(k))).filter(Boolean);
+    const snap = new Map(), ops = [];
+    for (const k of keys) { const v = localStorage.getItem(k); snap.set(k, v); const op = diff(k, base[k] ?? null, v); if (op) ops.push(op); }
     if (!ops.length) return;
-    const r = request("POST", "/api/state", { ops });
-    if (r && r.ok) {
-      for (const k of keys) { const v = localStorage.getItem(k); if (v == null) delete base[k]; else base[k] = v; }
-      if ((r.json.rejected || []).length) console.warn("KII server did not accept:", r.json.rejected);
-      banner("");
-    } else {
-      keys.forEach(k => dirty.add(k));
-      banner(r && r.status === 401 ? "Your session has ended. Please sign in again." : "Not saved to the KII server yet. Retrying…");
-      clearTimeout(retry); retry = setTimeout(schedule, 3000);
-    }
+    flushing = true;
+    // keepalive lets a small save finish while the page is closing; the size cap switches big ones to a normal request
+    post("/api/state", { ops }, JSON.stringify({ ops }).length < 60000).then(r => {
+      if (r && r.ok) {
+        for (const [k, v] of snap) { if (v == null) delete base[k]; else base[k] = v; }
+        if ((r.json.rejected || []).length) console.warn("KII server did not accept:", r.json.rejected);
+        banner("");
+      } else {
+        keys.forEach(k => dirty.add(k));
+        banner(r && r.status === 401 ? "Your session has ended. Please sign in again." : "Not saved to the KII server yet. Retrying…");
+        clearTimeout(retry); retry = setTimeout(schedule, 3000);
+      }
+      flushing = false;
+      if (scheduled) flush();
+    });
   }
   function schedule() { if (!scheduled) { scheduled = true; queueMicrotask(flush); } }
   S.flush = flush;
@@ -115,10 +137,12 @@
   proto.removeItem = function (k) {
     origRemove.call(this, k);
     if (this !== localStorage) return;
-    if (k === "kii_session") request("POST", "/api/logout", { kind: "applicant" });
-    else if (k === "kii_admin_session") request("POST", "/api/logout", { kind: "staff" });
+    if (k === "kii_session") post("/api/logout", { kind: "applicant" }, true);
+    else if (k === "kii_admin_session") post("/api/logout", { kind: "staff" }, true);
     else if (synced(k)) { dirty.add(k); schedule(); }
   };
+  /* last chance to push pending changes while the tab is closing or navigating away */
+  window.addEventListener("pagehide", () => { if (dirty.size) flush(); });
 
   /* move files saved in this browser (before the server existed) up to the server, once */
   if (localStorage.getItem("kii_files_pending") && window.indexedDB) {

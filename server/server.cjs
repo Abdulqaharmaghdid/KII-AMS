@@ -155,6 +155,11 @@ function stateFor(ctx) {
   for (const { key, value } of q.all.all()) { const v = readable(ctx, key, value); if (v !== undefined) data[key] = v; }
   return data;
 }
+function statePayload(ctx, req) {
+  const empty = q.count.get().n === 0;
+  return { enabled: true, empty, canImport: empty && isLocal(req),
+    session: { applicant: ctx.applicant, staff: ctx.staff?.id || null }, data: stateFor(ctx) };
+}
 function canSet(ctx, key) {
   if (!ctx.staff && !ctx.applicant) return false;
   if (CLIENT_ONLY.has(key)) return true;
@@ -296,11 +301,7 @@ async function api(req, res, url) {
   if (req.method !== "GET" && req.headers["x-kii"] !== "1") return send(res, 403, { error: "Missing request header." }); // CSRF guard
   const ctx = context(req);
 
-  if (route === "GET /api/state") {
-    const empty = q.count.get().n === 0;
-    return send(res, 200, { enabled: true, empty, canImport: empty && isLocal(req),
-      session: { applicant: ctx.applicant, staff: ctx.staff?.id || null }, data: stateFor(ctx) });
-  }
+  if (route === "GET /api/state") return send(res, 200, statePayload(ctx, req));
   if (route === "POST /api/state") {
     const body = await readJson(req);
     return send(res, 200, { ok: true, rejected: applyOps(ctx, body.ops) });
@@ -412,6 +413,14 @@ function serveStatic(req, res, url) {
   if (!file.startsWith(ROOT + path.sep) || BLOCKED.test(rel.replace(/\\/g, "/")) || !fs.existsSync(file) || !fs.statSync(file).isFile())
     return send(res, 404, "Not found", { "Content-Type": "text/plain; charset=utf-8" });
   const ext = path.extname(file).toLowerCase();
+  /* HTML pages carry the viewer's state inside <head> so the page never needs a blocking request at startup */
+  if (ext === ".html") {
+    const injected = JSON.stringify(statePayload(context(req), req)).replace(/</g, "\\u003c");
+    const html = fs.readFileSync(file, "utf8")
+      .replace(/<head([^>]*)>/i, `<head$1>\n<script>window.__KII_STATE__=${injected};</script>`);
+    res.writeHead(200, { "Content-Type": MIME[".html"], "Content-Length": Buffer.byteLength(html), "Cache-Control": "no-cache" });
+    return res.end(html);
+  }
   res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream", "Content-Length": fs.statSync(file).size,
     "Cache-Control": [".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff2"].includes(ext) ? "public, max-age=3600" : "no-cache" });
   fs.createReadStream(file).pipe(res);
