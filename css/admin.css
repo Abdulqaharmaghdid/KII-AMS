@@ -12,6 +12,10 @@
   --line2: #e6ebf0;
 }
 
+/* keep the vertical scrollbar space reserved so switching views never shifts the layout sideways */
+html { scrollbar-gutter: stable; }
+@supports not (scrollbar-gutter: stable) { html { overflow-y: scroll; } }
+
 .ams-shell { display: flex; min-height: 100vh; }
 
 /* ============ sidebar ============ */
@@ -20,7 +24,7 @@
   background: linear-gradient(175deg, var(--g-dark) 0%, var(--g-side) 55%, #0d3325 100%);
   color: #a9cbb9;
   display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; scrollbar-gutter: stable;
 }
 .ams-logo {
   display: flex; align-items: center; gap: 11px;
@@ -129,8 +133,8 @@
 .crumbs a { color: var(--muted2); text-decoration: none; }
 .crumbs a:hover { color: var(--g-accent); }
 .crumbs .sep { color: #cbd5e1; }
-.crumbs b { color: var(--ink); font-weight: 600; }
-.page-title { font-size: 1.3rem; font-weight: 800; color: var(--ink); }
+.crumbs b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.page-title { font-size: 1.3rem; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
 .page-sub { color: var(--muted2); font-size: .85rem; margin: 3px 0 18px; }
 .page-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
 
@@ -158,6 +162,7 @@
 .ams-card {
   background: #fff; border-radius: 13px; border: 1px solid var(--line2);
   padding: 18px 20px; margin-bottom: 16px;
+  min-width: 0;
 }
 .ams-card h3 {
   font-size: .93rem; color: var(--ink); margin-bottom: 14px;
@@ -233,7 +238,11 @@
   text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
   border-bottom: 1px solid var(--line2); white-space: nowrap;
 }
-.tbl td { padding: 11px 12px; border-bottom: 1px solid #f1f5f9; color: var(--ink); vertical-align: middle; }
+.tbl td {
+  padding: 11px 12px; border-bottom: 1px solid #f1f5f9; color: var(--ink); vertical-align: middle;
+  /* long names/URLs wrap instead of stretching the table beyond its card */
+  overflow-wrap: anywhere; word-break: break-word;
+}
 .tbl tr:last-child td { border-bottom: none; }
 .tbl tr.clickable { cursor: pointer; }
 .tbl tr.clickable:hover td { background: #f6faf8; }
@@ -292,7 +301,8 @@
   color: #15803d; font-weight: 800; font-size: 1rem; line-height: 1.15; text-align: center;
 }
 .app-banner .logo svg { width: 30px; height: 30px; margin-bottom: 4px; }
-.app-banner .who h2 { font-size: 1.3rem; color: var(--ink); display: flex; align-items: center; gap: 10px; font-weight: 800; }
+.app-banner .who h2 { font-size: 1.3rem; color: var(--ink); font-weight: 800; overflow-wrap: anywhere; word-break: break-word; }
+.app-banner .who h2 .chip, .app-banner .who h2 .scope-badge { display: inline-block; vertical-align: middle; margin-left: 8px; }
 .app-banner .who .tag { color: var(--muted2); font-size: .86rem; margin-top: 3px; }
 .app-banner .meta { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 13px; }
 .app-banner .meta .m { display: flex; align-items: flex-start; gap: 8px; font-size: .7rem; color: #94a3b8; }
@@ -457,7 +467,7 @@
 .ar-item small { color: var(--muted2); }
 
 /* ============ scope / support badges ============ */
-.scope-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: .71rem; font-weight: 700; }
+.scope-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: .71rem; font-weight: 700; white-space: nowrap; }
 .scope-in { background: #d1fae5; color: #15803d; }
 .scope-out { background: #fee2e2; color: #dc2626; }
 .support-chips { display: flex; flex-wrap: wrap; gap: 7px; }
