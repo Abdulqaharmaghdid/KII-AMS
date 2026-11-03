@@ -691,10 +691,10 @@ function tabOverview(a, body) {
       </div>
       <div class="ams-card"><h3>Financial / Procurement Summary <a href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=financials">View Details</a></h3>
         <table class="tbl"><tbody>
-          <tr><td>Approved Support</td><td class="text-right"><b>${amsMoney(a.supportApproved)}</b></td></tr>
-          <tr><td>Committed (POs)</td><td class="text-right"><b>${amsMoney(a.committed)}</b></td></tr>
-          <tr><td>Spent</td><td class="text-right"><b class="money-amber">${amsMoney(a.spent)}</b></td></tr>
-          <tr><td>Remaining</td><td class="text-right"><b class="money-green">${amsMoney((a.supportApproved || 0) - (a.spent || 0))}</b></td></tr>
+          <tr><td>Approved Support</td><td class="text-right"><b>${procMoney(a, a.supportApproved)}</b></td></tr>
+          <tr><td>Committed (POs)</td><td class="text-right"><b>${procMoney(a, a.committed)}</b></td></tr>
+          <tr><td>Spent</td><td class="text-right"><b class="money-amber">${procMoney(a, a.spent)}</b></td></tr>
+          <tr><td>Remaining</td><td class="text-right"><b class="money-green">${procMoney(a, (a.supportApproved || 0) - (a.spent || 0))}</b></td></tr>
         </tbody></table>
         <div class="pbar" style="margin-top:10px"><i style="width:${a.supportApproved ? Math.min(100, a.spent / a.supportApproved * 100) : 0}%;background:#22c55e"></i></div>
         <div class="sub2 text-right">${a.supportApproved ? Math.round(a.spent / a.supportApproved * 100) : 0}% spent</div>
@@ -1605,6 +1605,9 @@ const procMoney = (a, n) => `${Number(n || 0).toLocaleString()} ${supportCurrenc
 /* committed = approved but unpaid; spent = paid — always derived from the procurement items */
 function syncFin(a) {
   if (!(a.procurement || []).length) return;
+  /* older records approved before PO numbering get their PO number backfilled */
+  for (const p of a.procurement)
+    if ((p.status === "Approved" || p.status === "Paid") && !p.poId) p.poId = nextPrId(a, "PO");
   a.committed = a.procurement.filter(p => p.status === "Approved").reduce((s, p) => s + (+p.amount || 0), 0);
   a.spent = a.procurement.filter(p => p.status === "Paid").reduce((s, p) => s + (+p.amount || 0), 0);
 }
@@ -1744,12 +1747,13 @@ function tabFin(a, body) {
     return;
   }
   const remaining = (a.supportApproved || 0) - (a.spent || 0);
+  const fm = n => procMoney(a, n); // all figures on this page are in the applicant's support currency
   body.innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
-      ${statCard("#15803d", "#d1fae5", IC.money, amsMoney(a.supportApproved), "Approved Support")}
-      ${statCard("#2563eb", "#dbeafe", IC.doc, amsMoney(a.committed), "Committed (POs)")}
-      ${statCard("#b45309", "#fef3c7", IC.pie, amsMoney(a.spent), "Spent")}
-      ${statCard("#0f766e", "#ccfbf1", IC.shield, amsMoney(remaining), "Remaining")}
+      ${statCard("#15803d", "#d1fae5", IC.money, fm(a.supportApproved), "Approved Support")}
+      ${statCard("#2563eb", "#dbeafe", IC.doc, fm(a.committed), "Committed (POs)")}
+      ${statCard("#b45309", "#fef3c7", IC.pie, fm(a.spent), "Spent")}
+      ${statCard("#0f766e", "#ccfbf1", IC.shield, fm(remaining), "Remaining")}
     </div>
     <div class="ams-card"><h3>Spending</h3>
       <div class="pbar"><i style="width:${a.supportApproved ? Math.min(100, a.spent / a.supportApproved * 100) : 0}%;background:#22c55e"></i></div>
@@ -1768,7 +1772,7 @@ function tabFin(a, body) {
     ${can("manage_financials") ? `<div class="ams-card"><h3>Update Financials</h3>
       <form id="finForm" class="inline-form">
         <div class="grid-2">
-          <div><label>Approved Support ($)</label><input type="number" name="supportApproved" min="0" value="${a.supportApproved || 0}"></div>
+          <div><label>Approved Support (${supportCurrency(a)})</label><input type="number" name="supportApproved" min="0" value="${a.supportApproved || 0}"></div>
           <div><label>Committed / POs ($)</label><input type="number" name="committed" min="0" value="${a.committed || 0}" ${(a.procurement || []).length ? "disabled title='Set automatically by approved POs'" : ""}></div>
           <div><label>Spent ($)</label><input type="number" name="spent" min="0" value="${a.spent || 0}" ${(a.procurement || []).length ? "disabled title='Set automatically by paid POs'" : ""}></div>
         </div>
