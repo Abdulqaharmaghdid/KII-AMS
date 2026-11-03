@@ -369,6 +369,7 @@ function fillCountryCodes(el) {
    another page on this site. External links, new tabs, downloads, in-page
    anchors and modified clicks are left alone. */
 (function () {
+  if (typeof document === "undefined" || !document.documentElement) return;
   const root = document.documentElement;
   root.classList.add("kii-fade");
   const show = () => root.classList.add("kii-in");
@@ -384,6 +385,8 @@ function fillCountryCodes(el) {
         /^(javascript|mailto|tel):/i.test(href)) return;
     const url = new URL(href, location.href);
     if (url.origin !== location.origin) return;
+    /* pages with their own in-page router (the staff portal) handle same-page links themselves */
+    if (document.body?.hasAttribute("data-spa") && url.pathname === location.pathname) return;
     e.preventDefault();
     root.classList.add("kii-out");
     setTimeout(() => { location.href = url.href; }, 130);

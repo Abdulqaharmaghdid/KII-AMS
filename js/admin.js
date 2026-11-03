@@ -91,10 +91,16 @@ const BLIND_FILES = ["cv", "photo", "studentId", "video", "transcripts", "school
 /* read-only users (e.g. Workshop / Focal Point) can view full history but not change it */
 const readOnly = !["edit_applicants", "manage_tasks", "manage_meetings", "evaluate", "manage_documents",
   "make_decisions", "manage_financials", "manage_procurement", "manage_staff"].some(can);
-const P = new URLSearchParams(location.search);
-const view = P.get("v") || "dashboard";
-const applicantId = P.get("id");
-const tab = P.get("tab") || "overview";
+let P = new URLSearchParams(location.search);
+let view = P.get("v") || "dashboard";
+let applicantId = P.get("id");
+let tab = P.get("tab") || "overview";
+function readRoute() {
+  P = new URLSearchParams(location.search);
+  view = P.get("v") || "dashboard";
+  applicantId = P.get("id");
+  tab = P.get("tab") || "overview";
+}
 
 /* build nav */
 const navEl = $ams("#amsNav");
@@ -123,7 +129,7 @@ $ams("#logoutBtn").addEventListener("click", (e) => {
 
 /* global search */
 $ams("#globalSearch").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") location.href = "?v=applicants&q=" + encodeURIComponent(e.target.value.trim());
+  if (e.key === "Enter") nav("?v=applicants&q=" + encodeURIComponent(e.target.value.trim()));
 });
 
 /* ---------- notifications ---------- */
@@ -151,7 +157,11 @@ function renderNotifDrop() {
     e.preventDefault();
     amsMarkRead(a.dataset.nid);
     const link = a.getAttribute("href");
-    if (link && link !== "#") location.href = link;
+    if (link && link !== "#") {
+      const u = new URL(link, location.href);
+      if (u.origin === location.origin && u.pathname === location.pathname) nav(link);
+      else location.href = link;
+    }
     else renderBell(), renderNotifDrop();
   }));
 }
@@ -244,13 +254,13 @@ function allTasks() {
 }
 function daysUntil(iso) { return Math.ceil((new Date(iso) - Date.now()) / 86400000); }
 
-function go(url) { location.href = url; }
+function go(url) { nav(url); }
 function saveAndReload(app) {
   const l = amsGetApplicants();
   const i = l.findIndex(x => x.id === app.id);
   l[i] = app;
   amsSaveApplicants(l);
-  location.reload();
+  route(); // re-render the current view — no page reload needed
 }
 function touch(app, activity) {
   (app.activities = app.activities || []).unshift({ date: new Date().toISOString(), by: staff.name, ...activity });
@@ -444,7 +454,7 @@ function viewApplicants(el) {
   const filterVal = (name, val) => {
     const p = new URLSearchParams(location.search);
     val ? p.set(name, val) : p.delete(name);
-    location.search = p.toString();
+    nav("?" + p.toString());
   };
 
   el.innerHTML = `
@@ -2287,7 +2297,7 @@ function viewTeam(el) {
       active: true, perms: [...ROLES[role].perms], createdAt: new Date().toISOString(),
     });
     amsAudit(staff.name, "Staff account created", `${f.name.value.trim()} <${f.email.value.trim()}> as ${ROLES[role].label}`);
-    location.reload();
+    route();
   });
 
   $$ams("[data-toggle]", el).forEach(b => b.addEventListener("click", () => {
@@ -2296,7 +2306,7 @@ function viewTeam(el) {
     if (s.active && !confirm(`Restrict ${s.name}? They will not be able to sign in.`)) return;
     amsUpdateStaff(s.id, { active: !s.active });
     amsAudit(staff.name, s.active ? "Staff restricted" : "Staff activated", s.name);
-    location.reload();
+    route();
   }));
 
   $$ams("[data-perms]", el).forEach(b => b.addEventListener("click", () =>
@@ -2308,7 +2318,7 @@ function viewTeam(el) {
     const title = !s.title || s.title === ROLES[s.role]?.label ? ROLES[sel.value].label : s.title;
     amsUpdateStaff(s.id, { role: sel.value, title, perms: [...ROLES[sel.value].perms] });
     amsAudit(staff.name, "Role changed", `${s.name}: ${ROLES[s.role]?.label} → ${ROLES[sel.value].label}`);
-    location.reload();
+    route();
   }));
 
   $$ams('input[type="checkbox"][data-staff]', el).forEach(cb => cb.addEventListener("change", () => {
@@ -2463,7 +2473,7 @@ function viewSettings(el) {
     amsUpdateStaff(staff.id, { ...amsPwFields(f.pw.value), password: undefined, mustChangePassword: false });
     amsAudit(staff.name, "Password changed", "");
     alert("Password updated.");
-    location.href = "?v=settings";
+    nav("?v=settings");
   });
   const sys = $ams("#sysForm", el);
   if (sys) sys.addEventListener("submit", (e) => {
@@ -2475,7 +2485,7 @@ function viewSettings(el) {
     amsAudit(staff.name, "System settings changed",
       `Inactive ${next.inactiveDays}d · call "${next.callName}" · deadline ${next.deadline || "rolling"} · blind review ${next.blindReview ? "on" : "off"}`);
     alert("Settings saved.");
-    location.reload();
+    route();
   });
 }
 
@@ -2510,7 +2520,7 @@ function viewFormBuilder(el) {
     cfg.updatedAt = new Date().toISOString(); cfg.updatedBy = staff.name;
     KII.saveFormCustom(cfg); amsAudit(staff.name, action, detail);
   };
-  const go = (extra = "") => { location.href = `?v=formbuilder&sec=${encodeURIComponent(sec.id)}${extra}`; };
+  const go = (extra = "") => { nav(`?v=formbuilder&sec=${encodeURIComponent(sec.id)}${extra}`); };
   const hiddenSet = new Set(cfg.hidden);
   /* questions in display order: built-ins with custom questions inserted after their anchor */
   const rows = sec.fields.map(f => ({ ...f, id: `${sec.id}.${f.key}`, builtIn: true, o: cfg.overrides[`${sec.id}.${f.key}`] || null }));
@@ -2595,7 +2605,7 @@ function viewFormBuilder(el) {
       </div>
     </div>`;
 
-  $$ams(".fb-sections [data-sec]", el).forEach(b => b.addEventListener("click", () => { location.href = `?v=formbuilder&sec=${encodeURIComponent(b.dataset.sec)}`; }));
+  $$ams(".fb-sections [data-sec]", el).forEach(b => b.addEventListener("click", () => { nav(`?v=formbuilder&sec=${encodeURIComponent(b.dataset.sec)}`); }));
   const form = $ams("#fbForm", el), typeSel = form.type;
   const syncOpts = () => $$ams(".fb-opt", form).forEach(d => d.classList.toggle("hidden", !typeSel || !d.dataset.for.split(" ").includes(typeSel.value)));
   if (typeSel) { typeSel.addEventListener("change", syncOpts); syncOpts(); }
@@ -2702,7 +2712,7 @@ const VIEW_PERM = {
 /* safe row/button navigation (no inline JS with user-derived ids) */
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-go]");
-  if (t && !e.target.closest("a,button:not([data-go]),input,select,textarea")) location.href = t.dataset.go;
+  if (t && !e.target.closest("a,button:not([data-go]),input,select,textarea")) nav(t.dataset.go);
 });
 /* "Filter" buttons: quick text filter over the table in the same card */
 document.addEventListener("click", (e) => {
@@ -2722,14 +2732,44 @@ document.addEventListener("click", (e) => {
   inp.focus();
 });
 
-try { amsSyncPortal(); } catch (e) { console.error("Portal sync failed:", e); }
-const needed = VIEW_PERM[view];
-if (staff.mustChangePassword && view !== "settings") {
-  location.href = "?v=settings&pw=1";
-} else if (needed && !can(needed)) {
-  content.innerHTML = `<div class="ams-card"><h3>Access restricted</h3>
-    <div class="empty-state">Your role does not have permission to access this section.
-    Contact the Application &amp; Administration Manager to request access.</div></div>`;
-} else {
-  (ROUTES[view] || viewDashboard)(content);
+/* ---------- single-page navigation ----------
+   Same-page moves only re-render the content area and update the address bar,
+   so the sidebar and top bar never reload or flash. */
+function nav(url) { history.pushState(null, "", url); route(); }
+function route() {
+  readRoute();
+  $$ams("#amsNav a").forEach(a => a.classList.toggle("active",
+    a.dataset.v === view || (view === "applicant" && a.dataset.v === "applicants")));
+  content.style.opacity = "0";
+  const needed = VIEW_PERM[view];
+  if (staff.mustChangePassword && view !== "settings") {
+    history.replaceState(null, "", "?v=settings&pw=1");
+    readRoute();
+  }
+  const perm = VIEW_PERM[view];
+  if (perm && !can(perm)) {
+    content.innerHTML = `<div class="ams-card"><h3>Access restricted</h3>
+      <div class="empty-state">Your role does not have permission to access this section.
+      Contact the Application &amp; Administration Manager to request access.</div></div>`;
+  } else {
+    (ROUTES[view] || viewDashboard)(content);
+  }
+  (typeof requestAnimationFrame === "function" ? requestAnimationFrame : f => setTimeout(f, 0))(() => { content.style.opacity = "1"; });
+  if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
 }
+/* intercept links that stay inside the staff portal */
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[href]");
+  if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const href = (a.getAttribute("href") || "").trim();
+  if (!href || href.startsWith("#") || a.target === "_blank" || a.hasAttribute("download") ||
+      /^(javascript|mailto|tel):/i.test(href)) return;
+  const u = new URL(href, location.href);
+  if (u.origin !== location.origin || u.pathname !== location.pathname) return;
+  e.preventDefault();
+  nav(href);
+});
+window.addEventListener("popstate", route);
+
+try { amsSyncPortal(); } catch (e) { console.error("Portal sync failed:", e); }
+route();
