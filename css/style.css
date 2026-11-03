@@ -567,3 +567,11 @@ h3 { font-size: 1.02rem; margin: 22px 0 4px; color: var(--primary); }
 .sdg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .sdg-grid .checkbox-line { margin: 0; padding: 7px 10px; font-size: .84rem; }
 input:disabled, select:disabled, textarea:disabled { background: #f8fafc; color: #475569; cursor: not-allowed; }
+
+/* ===== soft page transitions =====
+   common.js fades the page in once it is ready and fades it out just before
+   leaving for another page, so moving between pages feels smooth instead of a hard flash */
+html.kii-fade { opacity: 0; transition: opacity .16s ease; }
+html.kii-fade.kii-in { opacity: 1; }
+html.kii-fade.kii-out { opacity: 0; transition-duration: .12s; }
+@media (prefers-reduced-motion: reduce) { html.kii-fade { opacity: 1; transition: none; } }

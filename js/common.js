@@ -363,3 +363,29 @@ function fillCountryCodes(el) {
   el.innerHTML = `<option value="">Code</option>` +
     COUNTRY_CODES.map(c => `<option value="${c}">${c}</option>`).join("");
 }
+
+/* ===== soft page transitions =====
+   Fades the page in when it is ready and out briefly before navigating to
+   another page on this site. External links, new tabs, downloads, in-page
+   anchors and modified clicks are left alone. */
+(function () {
+  const root = document.documentElement;
+  root.classList.add("kii-fade");
+  const show = () => root.classList.add("kii-in");
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show);
+  else show();
+  window.addEventListener("pageshow", () => { root.classList.remove("kii-out"); show(); });
+  if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a[href]");
+    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const href = (a.getAttribute("href") || "").trim();
+    if (a.target === "_blank" || a.hasAttribute("download") || !href || href.startsWith("#") ||
+        /^(javascript|mailto|tel):/i.test(href)) return;
+    const url = new URL(href, location.href);
+    if (url.origin !== location.origin) return;
+    e.preventDefault();
+    root.classList.add("kii-out");
+    setTimeout(() => { location.href = url.href; }, 130);
+  });
+})();
