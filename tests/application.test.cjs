@@ -20,7 +20,7 @@ function page(html, query = "") {
 const user = { firstName: "Test", secondName: "Middle", thirdName: "Applicant", passportNo: "A12345678", email: "test@example.org", dob: "2000-02-15", phone: "+964 (IQ) 7501234567" };
 const meta = (name, duration) => ({ name, fileId: "files/" + name, type: name.endsWith(".mp4") ? "video/mp4" : "application/pdf", size: 10, ...(duration ? { duration } : {}) });
 const data = {
-  instruction: { agreeApp: true, devArea: "Health" },
+  instruction: { agreeApp: true },
   personal: { firstName: "Test", secondName: "Middle", thirdName: "Applicant", passportNo: "A12345678", birthDate: "2000-02-15", gender: "Female",
     country: "Iraq", city: "Erbil", street: "Street", postal: "", email: user.email, phoneCode: "+964", phone: "7501234567",
     educationType: "High School or lower", courses: [], files: {} },
@@ -29,11 +29,12 @@ const data = {
     innovationPoint: "A new and affordable approach that costs less than existing tools. ".repeat(5), beneficiaries: "Local communities", workDuration: "0–6 months", implemented: "No", sdgs: [] },
   team: { roles: ["Founder", "CTO"], members: [{ name: "Test Middle Applicant", email: user.email, role: "Founder", phone: "+9647501234567" }], skills: ["Software development"] },
   technical: { technical: "The system combines software, sensors and local components. ".repeat(7),
-    prototypeStage: "No, not yet", prototypeNeeds: ["Engineering expertise"], needsDetail: "Help with sensor design.", files: {} },
+    prototypeStage: "No, not yet", files: {} },
   protection: { ipStatus: "No protection yet", regulatory: "Not sure", legalEntity: "Not registered yet (individual / team)" },
   market: { targetCustomers: "Local communities and institutions would use this product. ".repeat(7), competitors: "Manual processes.",
     businessPotential: "No", files: {} },
-  support: { supportTypes: ["Mentorship"], milestones: [{ milestone: "Complete first prototype", month: "3" }], otherSupport: "No" },
+  support: { supportTypes: ["Mentorship"], prototypeNeeds: ["Engineering expertise"], needsDetail: "Help with sensor design.",
+    milestones: [{ milestone: "Complete first prototype", month: "3" }], otherSupport: "No" },
   statement: { appliedBefore: "No", heardFrom: "Social media", files: { video: [meta("statement.mp4", 60)] }, references: [] }
 };
 const application = id => ({ id, schemaVersion: 3, category: "Technology", data: copy(data), completedSections: [], currentSection: "instruction", startedAt: "2026-10-01T12:00:00", status: "InProgress", submitted: false });
@@ -57,7 +58,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   const section = id => form.schema.find(s => s.id === id);
   const errors = (id, value) => form.validate(section(id).fields, value);
   for (const [id, value] of Object.entries(data)) check(!errors(id, value).length, `${id}: ${errors(id, value).join("; ")}`);
-  check(section("instruction").fields.length === 3, "Instruction step has terms, dev area and other-specify");
+  check(section("instruction").fields.length === 1, "Instruction step has only the terms agreement");
   check(w.KIILocations.countries().every(country => w.KIILocations.cities(country).length), "Every selectable country has city options");
   check(w.KIILocations.cities("Iran").includes("Tehran"), "Common country names map to the city catalogue");
   check(!errors("personal", { ...data.personal, email: "student@university.edu" }).length, "Academic emails accepted");
@@ -101,13 +102,19 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   check(errors("team", { ...data.team, members: [] }).length, "Team table required");
   check(!errors("team", data.team).length, "Solo applicant is sufficient");
   check(errors("team", { ...data.team, members: [{ ...data.team.members[0], phone: "bad" }] }).length, "Team phone validated");
-  const proof = { ...data.technical, prototypeStage: "Proof of concept", testResults: "Bench-tested; measures temperature within 0.5 degrees.", builtBy: "Our team" };
+  const proof = { ...data.technical, prototypeStage: "Proof of concept", tested: "Yes", testedHow: "Bench-tested; measures temperature within 0.5 degrees.", builtBy: "Our team" };
   check(!errors("technical", proof).length, "Proof of concept does not require photos");
   check(errors("technical", { ...proof, prototypeStage: "Working prototype" }).length, "Working prototype requires photos");
   const working = { ...proof, prototypeStage: "Working prototype", files: { prototypePhotos: [meta("photo.jpg")] } };
   check(!errors("technical", working).length, "Working prototype with photo accepted");
   check(errors("technical", { ...working, files: { prototypePhotos: Array(6).fill(meta("photo.jpg")) } }).length, "Six prototype photos rejected");
+  check(errors("technical", { ...proof, testedHow: "" }).length, "Tested answer requires the results description");
+  check(errors("technical", { ...proof, tested: "No", testingPlan: "" }).length, "Untested prototype requires the testing plan");
+  check(!errors("technical", { ...proof, tested: "No", testedHow: "", testingPlan: "Field trial next quarter." }).length, "Testing plan accepted");
   check(errors("protection", { ...data.protection, regulatory: "Yes" }).length, "Regulatory details conditional");
+  check(!errors("protection", { ...data.protection, regulatory: "Yes", regulatoryDetail: "CE marking." }).length, "Standards question optional under regulatory");
+  check(errors("protection", { ...data.protection, regulatory: "Yes", regulatoryDetail: "CE marking.", standardsCompliance: "Yes" }).length, "Standards detail conditional");
+  check(!errors("protection", { ...data.protection, legalEntity: "" }).length, "Legal entity optional");
   check(!errors("technical", { ...proof, files: { prototypeDemo: [meta("demo.mp4", 180)] } }).length, "Three-minute optional demo accepted");
   check(errors("technical", { ...proof, files: { prototypeDemo: [meta("demo.mp4", 181)] } }).length, "Long demo rejected");
   check(errors("innovation", { ...data.innovation, innovationPoint: "short" }).length, "Innovation point minimum enforced");
@@ -115,8 +122,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   check(!errors("innovation", { ...data.innovation, sector: "Other", sectorOther: "Tourism", subSector: "" }).length, "Other sector needs no sub-sector");
   check(errors("team", { ...data.team, members: [{ ...data.team.members[0], files: { cv: [meta("cv.jpg")] } }] }).length, "Team member CV must be PDF");
   check(!errors("market", data.market).length, "No business does not require revenue explanation");
-  check(errors("market", { ...data.market, businessPotential: "Maybe" }).length, "Maybe requires revenue explanation");
-  check(!errors("market", { ...data.market, businessPotential: "Yes", businessDetail: "Subscriptions" }).length, "Revenue explanation accepted");
+  check(!errors("market", { ...data.market, businessPotential: "Yes", businessModel: "Subscription / SaaS" }).length, "Optional business model accepted");
   check(errors("support", { ...data.support, supportTypes: ["Engineering Workshop Access"] }).length, "Workshop facilities required");
   check(errors("support", { ...data.support, supportTypes: ["Financial support"], reqCurrency: "USD" }).length, "Financial rows conditional");
   const finance = { ...data.support, supportTypes: ["Financial support"], reqCurrency: "USD", requirements: [
@@ -125,13 +131,11 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   ] };
   check(!errors("support", finance).length, "Mixed-currency requirements valid");
   check(errors("support", { ...finance, requirements: [...finance.requirements, { rqItem: "Incomplete" }] }).length, "Every financial row checked");
-  check(errors("support", { ...data.support, milestones: Array(6).fill(data.support.milestones[0]) }).length, "Five-milestone cap enforced");
-  check(errors("support", { ...data.support, milestones: [{ milestone: "x", month: "13" }] }).length, "Milestone month within twelve");
   check(errors("support", { ...data.support, otherSupport: "Yes" }).length, "Other organisation required when yes");
-  check(!errors("statement", data.statement).length, "60-second statement and optional references accepted");
+  check(errors("support", { ...data.support, needsDetail: "" }).length, "Prototype needs description required");
+  check(!errors("statement", data.statement).length, "60-second statement accepted");
   check(errors("statement", { ...data.statement, files: { video: [meta("statement.mp4", 61)] } }).length, "61-second statement rejected");
-  check(errors("statement", { ...data.statement, files: { video: [meta("statement.webm", 30)] } }).length, "MP4 format required");
-  check(errors("statement", { ...data.statement, references: [{ name: "Name", email: "bad" }] }).length, "Provided reference email validated");
+  check(!errors("statement", { ...data.statement, files: { video: [meta("statement.webm", 30)] } }).length, "Recorded WebM statement accepted");
   check(errors("statement", { ...data.statement, appliedBefore: "Yes" }).length, "Previous program details required");
   console.log("Schema and conditional validation passed");
 
@@ -142,13 +146,13 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
     control.dispatchEvent(new w.Event("change", { bubbles: true }));
   }
   form.render("personal");
-  body.querySelector('[data-date="Year"]').focus();
-  check(body.querySelectorAll('[data-field="birthDate"] [role="option"]').length === 100, "Birth-year searchable dropdown");
-  for (const [part, value] of [["Year", "2004"], ["Month", "2"], ["Day", "29"]]) {
+  const dobMonth = body.querySelector('[data-date="month"]');
+  check(dobMonth?.tagName === "SELECT" && dobMonth.options.length === 13, "DOB month dropdown lists all twelve months");
+  for (const [part, value] of [["year", "2004"], ["month", "2"], ["day", "29"]]) {
     const input = body.querySelector(`[data-date="${part}"]`);
     input.value = value; input.dispatchEvent(new w.Event("input", { bubbles: true }));
   }
-  check(form.application.data.personal.birthDate === "2004-02-29", "Typed birth date stored as valid ISO date");
+  check(form.application.data.personal.birthDate === "2004-02-29", "Date-of-birth picker stores valid ISO date");
   check(body.querySelector('[data-key="phoneCode"]').value === "+964", "Iraq default");
   set("educationType", "Higher Education");
   check(!body.querySelector('[data-field="education"]').hidden, "Education opens conditionally");
@@ -202,7 +206,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   w.localStorage.removeItem("kii_ams_settings");
   form.application.data.innovation = copy(data.innovation);
   form.application.data.support = copy(finance); form.render("support");
-  check(body.querySelectorAll("table").length === 2, "Requirements and milestones are real tables");
+  check(body.querySelectorAll("table").length === 1, "Requirements are a real table");
   check(body.querySelector(".budget-totals").textContent.includes("32,100 USD"), "Single-currency total shown");
   const request = body.querySelector('[data-field="requirements"]');
   request.querySelector(".add-row").click();
@@ -281,19 +285,20 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   const v2Dom = page("application.html", "?application=v2"), v2 = v2Dom.window;
   v2.KII.addUser(user); v2.KII.login(user.email);
   v2.KII.saveApplication(user.email, { id: "v2", schemaVersion: 2, currentSection: "prototype", completedSections: [], status: "InProgress", startedAt: "2026-10-01T12:00:00", data: {
-    instruction: { agreeApp: true, devArea: "Health" },
+    instruction: { agreeApp: true },
     personal: { ...data.personal, primaryCitizenship: "Iraq", work: "Volunteer", courses: "Python course", files: { courseCertificates: [meta("python.pdf")] } },
     innovation: { ...data.innovation, sector: "Fashion & Design", innovationType: "Software or digital" },
     team: copy(data.team),
     prototype: { technical: data.technical.technical, risks: "Sensor drift", prototypeStage: "Proof of concept", capabilities: "Measures temperature", testMethods: ["Lab or bench"], testResults: "Accurate to 0.5 degrees", builtBy: "Our team",
       prototypeNeeds: ["Funding"], needsDetail: "Parts", ipStatus: "Patent pending", ipOwner: "Me", regulatory: "No", legalEntity: "Registered company", files: { drawings: [meta("sketch.pdf")] } },
-    market: copy(data.market), support: copy(data.support), statement: copy(data.statement)
+    market: copy(data.market), support: { ...copy(data.support), prototypeNeeds: undefined, needsDetail: undefined }, statement: copy(data.statement)
   } });
   v2.eval(read("js/application-merged.js")); await tick();
   const upgraded = v2.KII.getApplication(user.email, "v2");
   check(upgraded.schemaVersion === 3 && v2.KIIMergedForm, "Version 2 draft upgraded without errors");
   check(upgraded.data.technical.prototypeStage === "Proof of concept" && upgraded.data.technical.files.drawings[0].name === "sketch.pdf", "Prototype answers and files moved to Technical Background");
-  check(upgraded.data.technical.testResults.includes("Measures temperature") && upgraded.data.technical.testResults.includes("0.5 degrees"), "Earlier testing answers merged into the testing question");
+  check(upgraded.data.technical.tested === "Yes" && upgraded.data.technical.testedHow.includes("Measures temperature") && upgraded.data.technical.testedHow.includes("0.5 degrees"), "Earlier testing answers carried into the split testing question");
+  check(upgraded.data.support.prototypeNeeds.includes("Funding") && upgraded.data.support.needsDetail === "Parts", "Prototype needs moved to the support step");
   check(upgraded.data.protection.ipStatus === "Patent pending" && upgraded.data.protection.legalEntity === "Registered company", "IP and legal answers moved to Protection & Rules");
   check(upgraded.data.personal.courses[0].courseName === "Python course" && upgraded.data.personal.courses[0].files.certificate[0].name === "python.pdf", "Course text and certificates became a course row");
   check(!("primaryCitizenship" in upgraded.data.personal) && upgraded.retiredData.personal.primaryCitizenship === "Iraq", "Removed answers kept in retiredData only");
@@ -347,7 +352,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   a.AdminApi.tabFinancial(recordA, staffBody);
   check(staffBody.textContent.includes("32,100 USD"), "Staff financial table shows selected currency");
   a.AdminApi.tabMilestones(recordA, staffBody);
-  check(staffBody.textContent.includes("Month 3: Complete first prototype"), "Structured milestones visible to staff");
+  check(staffBody.textContent.includes("Milestones") && !staffBody.textContent.includes("Month 3: Complete first prototype"), "Milestones tab renders; removed milestone question no longer syncs");
   check(a.AdminApi.reopenPortalApplication(recordA, "Revise technical details"), "Staff requests revision");
   check(!a.KII.getApplication(user.email, "idea-a").submitted && a.KII.getApplication(user.email, "idea-a").revisionNote, "Revision targets selected AMS case");
   check(!a.KII.getApplication(user.email, "idea-b").revisionNote, "Other idea unaffected by revision");
@@ -416,9 +421,9 @@ if (require.main === module && process.argv.includes("--browser")) (async () => 
     await choose(personal, "city", "sulay", "Sulaimani");
     assert.equal(await page.locator('[data-key="postal"]').inputValue(), "46001");
     await page.locator('[data-key="postal"]').fill("46002");
-    await page.locator('[data-date="Year"]').fill("2004");
-    await page.locator('[data-date="Month"]').fill("02");
-    await page.locator('[data-date="Day"]').fill("29");
+    await page.locator('[data-date="year"]').fill("2004");
+    await page.locator('[data-date="month"]').selectOption("2");
+    await page.locator('[data-date="day"]').fill("29");
     await page.locator('[data-key="educationType"]').selectOption("Higher Education");
     const row = page.locator('[data-field="education"] .merged-row').first();
     await choose(row, "city", "erb", "Erbil");
@@ -446,11 +451,11 @@ if (require.main === module && process.argv.includes("--browser")) (async () => 
     assert.equal(saved.activeData.personal.education[0].startYear, "2022");
     assert.equal("endYear" in saved.activeData.personal.education[0], false);
     assert.match(JSON.stringify(saved.reviewSections), /Online profile or website/);
-    await page.locator('[data-date="Year"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-date="year"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(artifacts, "personal-desktop.png") });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('[data-date="Year"]').scrollIntoViewIfNeeded();
-    await page.locator('[data-date="Year"]').click();
+    await page.locator('[data-date="year"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-date="year"]').click();
     await page.screenshot({ path: path.join(artifacts, "personal-mobile.png") });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Personal Background fits mobile viewport");
     await page.setViewportSize({ width: 1440, height: 1000 });

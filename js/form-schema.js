@@ -11,22 +11,6 @@ window.KII_FORM_SCHEMA = [
     "label": "I agree to the Application terms",
     "hint": "Provide truthful information and materials you have permission to share. KII will use your application to assess eligibility and support needs. Submission does not guarantee acceptance or funding. You may submit more than one idea using the same account.",
     "conditional": false
-   },
-   {
-    "key": "devArea",
-    "type": "select",
-    "required": true,
-    "label": "KII development area for your application",
-    "hint": "Choose the area your idea belongs to. This assigns your application ID code.",
-    "conditional": true
-   },
-   {
-    "key": "devAreaOther",
-    "type": "multitext",
-    "required": true,
-    "label": "Specify the development area",
-    "hint": "",
-    "conditional": true
    }
   ]
  },
@@ -71,7 +55,7 @@ window.KII_FORM_SCHEMA = [
     "type": "dob",
     "required": true,
     "label": "Date of birth",
-    "hint": "Type or select your year, month and day.",
+    "hint": "Select the month, then type the day and year.",
     "conditional": false
    },
    {
@@ -397,10 +381,26 @@ window.KII_FORM_SCHEMA = [
     "conditional": false
    },
    {
-    "key": "testResults",
+    "key": "tested",
+    "type": "select",
+    "required": true,
+    "label": "Have you tested your prototype?",
+    "hint": "",
+    "conditional": true
+   },
+   {
+    "key": "testedHow",
     "type": "textarea",
     "required": true,
-    "label": "Have you tested your prototype? Describe how it was tested and the results. If not yet tested, explain what testing is planned.",
+    "label": "Describe how it was tested and the results.",
+    "hint": "",
+    "conditional": true
+   },
+   {
+    "key": "testingPlan",
+    "type": "textarea",
+    "required": true,
+    "label": "If not yet tested, explain what testing is planned.",
     "hint": "",
     "conditional": true
    },
@@ -433,30 +433,6 @@ window.KII_FORM_SCHEMA = [
     "type": "file",
     "required": false,
     "label": "Drawings, sketches, schematics or CAD files",
-    "hint": "",
-    "conditional": false
-   },
-   {
-    "key": "prototypeNeeds",
-    "type": "checks",
-    "required": true,
-    "label": "What do you need to build your first or next prototype?",
-    "hint": "",
-    "conditional": false
-   },
-   {
-    "key": "needsOther",
-    "type": "multitext",
-    "required": true,
-    "label": "Specify other prototype needs",
-    "hint": "",
-    "conditional": true
-   },
-   {
-    "key": "needsDetail",
-    "type": "textarea",
-    "required": true,
-    "label": "Describe what you need for the prototype",
     "hint": "",
     "conditional": false
    }
@@ -507,9 +483,25 @@ window.KII_FORM_SCHEMA = [
     "conditional": true
    },
    {
+    "key": "standardsCompliance",
+    "type": "select",
+    "required": false,
+    "label": "Do the materials, components or system in your solution need to comply with recognised technical standards (e.g. ASTM, API, ISO)?",
+    "hint": "",
+    "conditional": true
+   },
+   {
+    "key": "standardsDetail",
+    "type": "textarea",
+    "required": true,
+    "label": "Which standards apply, and how will you check or prove compliance?",
+    "hint": "",
+    "conditional": true
+   },
+   {
     "key": "legalEntity",
     "type": "select",
-    "required": true,
+    "required": false,
     "label": "Legal entity status",
     "hint": "",
     "conditional": false
@@ -545,42 +537,10 @@ window.KII_FORM_SCHEMA = [
     "conditional": false
    },
    {
-    "key": "businessDetail",
-    "type": "textarea",
-    "required": true,
-    "label": "How would it make money?",
-    "hint": "",
-    "conditional": true
-   },
-   {
     "key": "businessModel",
     "type": "select",
     "required": false,
     "label": "Business model",
-    "hint": "",
-    "conditional": false
-   },
-   {
-    "key": "businessModelOther",
-    "type": "multitext",
-    "required": true,
-    "label": "Specify business model",
-    "hint": "",
-    "conditional": true
-   },
-   {
-    "key": "traction",
-    "type": "text",
-    "required": false,
-    "label": "Traction so far",
-    "hint": "Users, pilots, letters of intent, revenue…",
-    "conditional": false
-   },
-   {
-    "key": "pitchDeck",
-    "type": "file",
-    "required": false,
-    "label": "Pitch deck or business plan (optional)",
     "hint": "",
     "conditional": false
    }
@@ -615,6 +575,22 @@ window.KII_FORM_SCHEMA = [
     "conditional": true
    },
    {
+    "key": "prototypeNeeds",
+    "type": "checks",
+    "required": true,
+    "label": "What do you need to build your first or next prototype?",
+    "hint": "",
+    "conditional": false
+   },
+   {
+    "key": "needsDetail",
+    "type": "textarea",
+    "required": true,
+    "label": "Describe what you need for the prototype",
+    "hint": "",
+    "conditional": false
+   },
+   {
     "key": "reqCurrency",
     "type": "select",
     "required": true,
@@ -629,14 +605,6 @@ window.KII_FORM_SCHEMA = [
     "label": "Financial support request",
     "hint": "Costs are in the currency selected above.",
     "conditional": true
-   },
-   {
-    "key": "milestones",
-    "type": "repeat",
-    "required": true,
-    "label": "Key milestones for the next 12 months",
-    "hint": "",
-    "conditional": false
    },
    {
     "key": "otherSupport",
@@ -665,7 +633,7 @@ window.KII_FORM_SCHEMA = [
     "type": "file",
     "required": true,
     "label": "Video statement",
-    "hint": "Introduce yourself, your idea, and what you hope to gain from KII. Required MP4, up to 60 seconds.",
+    "hint": "Introduce yourself, your idea, and what you hope to gain from KII. Record directly in the browser or upload an MP4/WebM video, up to 60 seconds.",
     "conditional": false
    },
    {
@@ -699,14 +667,6 @@ window.KII_FORM_SCHEMA = [
     "label": "Specify how you heard about KII",
     "hint": "",
     "conditional": true
-   },
-   {
-    "key": "references",
-    "type": "repeat",
-    "required": false,
-    "label": "Recommenders (optional)",
-    "hint": "You may add a referee and describe your relationship, or leave this section empty.",
-    "conditional": false
    },
    {
     "key": "anythingElse",

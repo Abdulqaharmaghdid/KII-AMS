@@ -13,20 +13,12 @@ if (signupForm) {
   fillCountryCodes(document.getElementById("phoneCode"));
   document.getElementById("phoneCode").value = "+964 (IQ)";
 
-  /* date of birth: year / month / day dropdowns (friendlier than the native date picker) */
+  /* date of birth: USWDS-style picker — month dropdown + day and year inputs */
   const dobY = document.getElementById("dobYear"), dobM = document.getElementById("dobMonth"), dobD = document.getElementById("dobDay");
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  dobY.innerHTML = '<option value="">Year</option>' + Array.from({length: 90}, (_,i) => new Date().getFullYear() - 14 - i).map(y => `<option>${y}</option>`).join("");
   dobM.innerHTML = '<option value="">Month</option>' + months.map((m,i) => `<option value="${i+1}">${m}</option>`).join("");
-  function fillDays() {
-    const days = dobY.value && dobM.value ? new Date(+dobY.value, +dobM.value, 0).getDate() : 31;
-    const keep = dobD.value;
-    dobD.innerHTML = '<option value="">Day</option>' + Array.from({length: days}, (_,i) => `<option>${i+1}</option>`).join("");
-    if (keep && +keep <= days) dobD.value = keep;
-  }
-  fillDays(); dobY.addEventListener("change", fillDays); dobM.addEventListener("change", fillDays);
-  const dobValue = () => dobY.value && dobM.value && dobD.value
-    ? `${dobY.value}-${String(dobM.value).padStart(2,"0")}-${String(dobD.value).padStart(2,"0")}` : "";
+  const dobValue = () => /^\d{4}$/.test(dobY.value) && dobM.value && /^\d{1,2}$/.test(dobD.value)
+    ? `${dobY.value}-${String(dobM.value).padStart(2,"0")}-${String(+dobD.value).padStart(2,"0")}` : "";
 
   /* country / province / town (two-level for Iraq, same as the application form) */
   const countryEl = document.getElementById("country"), provEl = document.getElementById("province"), townEl = document.getElementById("town"), townField = document.getElementById("townField");

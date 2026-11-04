@@ -1616,7 +1616,7 @@ const nextPrId = (a, prefix) => prefix + "-" + new Date().getFullYear() + "-" +
 
 /* printable PR / PO document on KII letterhead */
 function printProcDoc(a, p) {
-  const devArea = a.application?.instruction?.devArea || "";
+  const devArea = a.application?.instruction?.devArea || a.application?.innovation?.sector || "";
   const isPo = p.status === "Approved" || p.status === "Paid";
   const w = window.open("", "_blank");
   if (!w) return alert("Please allow pop-ups to print the document.");
@@ -1677,7 +1677,7 @@ function procCard(a) {
         <div class="grid-2">
           <div><label>Item / service title</label><input name="title" required maxlength="140"></div>
           <div><label>Vendor / supplier</label><input name="vendor" maxlength="100"></div>
-          <div><label>Procurement category</label><select name="category">${PROC_CATEGORIES.map(c => `<option ${c === (a.application?.instruction?.devArea || "") ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+          <div><label>Procurement category</label><select name="category">${PROC_CATEGORIES.map(c => `<option ${c === (a.application?.instruction?.devArea || a.application?.innovation?.sector || "") ? "selected" : ""}>${c}</option>`).join("")}</select></div>
           <div><label>Amount (${supportCurrency(a)})</label><input type="number" name="amount" min="0" step="any" required></div>
         </div>
         <div><label>Description / justification</label><textarea name="description" rows="2" maxlength="500"></textarea></div>
@@ -2612,7 +2612,7 @@ const FB_BUILTIN_TYPES = {
   repeat: "Table (repeating rows)", multitext: "List of answers", email: "Email", phone: "Phone", digits: "Number (digits)", month: "Month",
 };
 /* questions other logic depends on (identity, routing, ID code, budget) cannot be hidden */
-const FB_LOCKED = new Set(["instruction.agreeApp", "instruction.devArea", "instruction.devAreaOther", "personal.firstName",
+const FB_LOCKED = new Set(["instruction.agreeApp", "personal.firstName",
   "personal.secondName", "personal.thirdName", "personal.email", "personal.country", "personal.city", "personal.phoneCode",
   "personal.phone", "innovation.title", "innovation.sector", "innovation.subSector", "support.supportTypes",
   "support.reqCurrency", "support.requirements"]);

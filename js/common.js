@@ -61,7 +61,8 @@ const KII = {
   saveFormCustom(cfg) { localStorage.setItem("kii_form_custom", JSON.stringify(cfg)); },
   formSchemaInfo() { try { return JSON.parse(localStorage.getItem("kii_form_schema")) || null; } catch { return null; } },
   areaPrefixes: { "Human Being": "HUM", "Smart Cities": "SMC", "House Ware": "HSW", "Sustainable Energy": "SER",
-    "Health": "HLT", "Education": "EDU", "Transportation": "TRN", "IT": "ITC", "Fashion": "FSH", "Automation": "AUT", "Other": "OTH" },
+    "Health": "HLT", "Education": "EDU", "Transportation": "TRN", "IT": "ITC", "Fashion": "FSH", "Automation": "AUT",
+    "Technology": "TEC", "Agriculture": "AGR", "Other": "OTH" },
   async nextApplicantCode(area) {
     if (window.KIIServer?.enabled) { // unique across all applicants
       const r = await KIIServer.post("/api/code", { area });
