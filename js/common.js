@@ -479,9 +479,10 @@ function fillCountryCodes(el) {
       '<button type="button" class="kii-dp-col" data-col="month"><small>Month</small><b class="dp-month-label"></b></button>' +
       '<button type="button" class="kii-dp-col" data-col="year"><small>Year</small><b class="dp-year-label"></b></button>' +
       '<button type="button" class="kii-dp-nav dp-next" aria-label="Next month">&#8250;</button></div>' +
-      '<div class="kii-dp-scroll" hidden><div class="kii-dp-scroll-list" tabindex="0"></div><div class="kii-dp-scroll-hint">Scroll or type to find</div></div>' +
+      '<div class="kii-dp-cal">' +
       '<div class="kii-dp-week">' + ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(function (d) { return '<span>' + d + '</span>'; }).join("") + '</div>' +
       '<div class="kii-dp-grid" role="grid"></div>' +
+      '<div class="kii-dp-scroll" hidden><div class="kii-dp-scroll-list" tabindex="0"></div><div class="kii-dp-scroll-hint">Scroll or type to find</div></div></div>' +
       '<div class="kii-dp-foot"><button type="button" data-today>Today</button><button type="button" data-clear>Clear</button></div>';
     document.body.appendChild(dp);
     var grid = dp.querySelector(".kii-dp-grid"), scrollBox = dp.querySelector(".kii-dp-scroll"),
@@ -491,7 +492,7 @@ function fillCountryCodes(el) {
     function render() {
       var sel = getIso();
       dayLbl.textContent = sel ? +sel.slice(8, 10) : "–";
-      monthLbl.textContent = MONTHS[view.m];
+      monthLbl.textContent = MONTHS[view.m].slice(0, 3);
       yearLbl.textContent = view.y;
       var first = new Date(view.y, view.m, 1), today = todayIso(), cells = [];
       for (var i = 0; i < first.getDay(); i++) cells.push('<button type="button" class="kii-dp-day empty" disabled></button>');
@@ -524,7 +525,7 @@ function fillCountryCodes(el) {
         return '<button type="button" class="kii-dp-item' + (it.v === current ? " sel" : "") + '" data-v="' + it.v + '"' + (off ? " disabled" : "") + '>' + it.label + '</button>';
       }).join("");
       var selItem = scrollList.querySelector(".sel");
-      if (selItem) selItem.scrollIntoView({ block: "center" });
+      if (selItem) scrollList.scrollTop = selItem.offsetTop - scrollList.clientHeight / 2 + selItem.offsetHeight / 2;
       scrollList.focus();
     }
     var jumpBuf = "", jumpTimer = null;
@@ -533,7 +534,7 @@ function fillCountryCodes(el) {
       jumpBuf += e.key.toLowerCase();
       clearTimeout(jumpTimer); jumpTimer = setTimeout(function () { jumpBuf = ""; }, 700);
       var hit = Array.from(scrollList.children).find(function (b) { return b.textContent.toLowerCase().indexOf(jumpBuf) === 0; });
-      if (hit) { hit.scrollIntoView({ block: "center" }); hit.classList.add("jump"); setTimeout(function () { hit.classList.remove("jump"); }, 700); }
+      if (hit) { scrollList.scrollTop = hit.offsetTop - scrollList.clientHeight / 2 + hit.offsetHeight / 2; hit.classList.add("jump"); setTimeout(function () { hit.classList.remove("jump"); }, 700); }
     });
     scrollList.addEventListener("click", function (e) {
       var it = e.target.closest(".kii-dp-item");
@@ -613,20 +614,21 @@ function fillCountryCodes(el) {
 
   if (!document.getElementById("kii-dp-css")) {
     var css = document.createElement("style"); css.id = "kii-dp-css";
-    css.textContent = ".kii-dp{position:fixed;z-index:4000;width:284px;background:#fff;border:1px solid #d7dde4;border-radius:10px;box-shadow:0 12px 32px rgba(15,40,70,.18);padding:10px;font:14px/1.4 'Segoe UI',Arial,sans-serif;color:#14202b;}"
+    css.textContent = ".kii-dp{position:fixed;z-index:4000;width:296px;background:#fff;border:1px solid #d7dde4;border-radius:10px;box-shadow:0 12px 32px rgba(15,40,70,.18);padding:12px;font:14px/1.4 'Segoe UI',Arial,sans-serif;color:#14202b;}"
       + ".kii-dp-head{display:flex;gap:5px;align-items:center;margin-bottom:6px}"
       + ".kii-dp-col{flex:1;min-width:0;height:44px;border:1px solid #c7d0da;border-radius:8px;background:#fff;font:inherit;padding:2px 4px;cursor:pointer;text-align:center}"
       + ".kii-dp-col small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6a7684}"
       + ".kii-dp-col b{font-size:14px;color:#14202b}"
       + ".kii-dp-col:hover,.kii-dp-col.on{background:#e6eef6;border-color:#2563eb}"
-      + ".kii-dp-scroll{border:1px solid #d7dde4;border-radius:8px;margin-bottom:8px;background:#fbfcfe}"
-      + ".kii-dp-scroll-list{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;outline:none}"
-      + ".kii-dp-item{border:0;background:transparent;font:inherit;padding:7px 12px;text-align:center;cursor:pointer;color:#14202b}"
+      + ".kii-dp-cal{position:relative}"
+      + ".kii-dp-scroll{position:absolute;inset:0;z-index:2;border:1px solid #d7dde4;border-radius:8px;background:#fbfcfe;box-shadow:0 6px 18px rgba(15,40,70,.12);display:flex;flex-direction:column}"
+      + ".kii-dp-scroll-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;outline:none}"
+      + ".kii-dp-item{border:0;background:transparent;font:inherit;padding:9px 12px;text-align:center;cursor:pointer;color:#14202b;flex:none}"
       + ".kii-dp-item:hover:not(:disabled){background:#dbeafe}"
       + ".kii-dp-item.sel{background:#2563eb;color:#fff;font-weight:700}"
       + ".kii-dp-item.jump{outline:2px solid #2563eb;outline-offset:-2px}"
       + ".kii-dp-item:disabled{color:#b9c2cc;cursor:default}"
-      + ".kii-dp-scroll-hint{font-size:10px;color:#8a94a0;text-align:center;padding:3px;border-top:1px solid #e5eaf0}"
+      + ".kii-dp-scroll-hint{font-size:10px;color:#8a94a0;text-align:center;padding:3px;border-top:1px solid #e5eaf0;flex:none}"
       + ".kii-dp-nav{width:30px;height:44px;border:1px solid #c7d0da;border-radius:8px;background:#f4f7fa;color:#1e4a7a;font-size:18px;line-height:1;cursor:pointer;flex:none}"
       + ".kii-dp-nav:hover{background:#e6eef6}"
       + ".kii-dp-week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;font-weight:700;color:#6a7684;margin-bottom:4px}"
