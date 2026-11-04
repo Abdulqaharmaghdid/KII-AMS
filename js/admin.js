@@ -2625,7 +2625,11 @@ function viewFormBuilder(el) {
   const sections = fbSchema();
   if (!sections.length) { el.innerHTML = `<div class="ams-card">The form definition could not be loaded. Please reload the page.</div>`; return; }
   const cfg = KII.formCustom();
-  cfg.custom ||= []; cfg.hidden ||= []; cfg.overrides ||= {};
+  cfg.custom ||= []; cfg.hidden ||= []; cfg.overrides ||= {}; cfg.deleted ||= [];
+  /* two-step confirmation before any form change is saved (required for every action) */
+  const sure = what => confirm(`Are you sure you want to ${what}?`) &&
+    confirm(`Please confirm once more — this changes the live application form for every applicant. Continue?`);
+  const deletedSet = new Set(cfg.deleted);
   const sec = sections.find(s => s.id === P.get("sec")) || sections[0];
   const editKey = P.get("edit");
   const save = (action, detail) => {
@@ -2648,7 +2652,8 @@ function viewFormBuilder(el) {
   const editing = editKey ? rows.find(r => r.id === editKey) : null;
   const ev = editing ? (editing.builtIn ? { label: editing.o?.label || editing.label, hint: editing.o?.hint ?? editing.hint, required: editing.o?.required ?? editing.required } : editing) : {};
   const typeLabel = r => r.builtIn ? (FB_BUILTIN_TYPES[r.type] || r.type) : FB_TYPES[r.type] || r.type;
-  const status = r => r.builtIn ? (hiddenSet.has(r.id) ? '<span class="chip chip-inactive">Hidden</span>' : '<span class="chip chip-active">Shown</span>')
+  const status = r => r.builtIn ? (deletedSet.has(r.id) ? '<span class="chip chip-rejected">Deleted</span>'
+      : hiddenSet.has(r.id) ? '<span class="chip chip-inactive">Hidden</span>' : '<span class="chip chip-active">Shown</span>')
     : (r.active === false ? '<span class="chip chip-inactive">Hidden</span>' : '<span class="chip chip-active">Shown</span>');
   const isReq = r => r.builtIn ? (r.o?.required ?? r.required) : !!r.required;
   el.innerHTML = `
@@ -2668,7 +2673,7 @@ function viewFormBuilder(el) {
       <div class="ams-card"><h3>Step ${sections.indexOf(sec) + 1} — ${escA(sec.title)} <span class="sub2">${rows.length} questions</span></h3>
         <table class="tbl fb-table"><thead><tr><th>#</th><th>Question</th><th>Answer type</th><th>Required</th><th>Status</th><th class="text-right">Actions</th></tr></thead><tbody>
         ${rows.map((r, i) => {
-          const off = r.builtIn ? hiddenSet.has(r.id) : r.active === false;
+          const off = r.builtIn ? (hiddenSet.has(r.id) || deletedSet.has(r.id)) : r.active === false;
           const label = r.builtIn ? (r.o?.label || r.label) : r.label;
           return `<tr class="${off ? "fb-off" : ""}${editing && editing.id === r.id ? " fb-editing" : ""}">
             <td class="sub2">${i + 1}</td>
@@ -2682,8 +2687,11 @@ function viewFormBuilder(el) {
             <td>${status(r)}</td>
             <td class="text-right fb-actions">
               <button type="button" class="abtn ghost sm" data-fb="edit" data-id="${escA(r.id)}">Edit</button>
-              ${FB_LOCKED.has(r.id) ? "" : `<button type="button" class="abtn ghost sm" data-fb="toggle" data-id="${escA(r.id)}">${off ? "Show" : "Hide"}</button>`}
-              ${r.builtIn ? (r.o ? `<button type="button" class="abtn ghost sm" data-fb="restore" data-id="${escA(r.id)}">Restore</button>` : "")
+              ${r.builtIn ? `${deletedSet.has(r.id)
+                  ? `<button type="button" class="abtn ghost sm" data-fb="undelete" data-id="${escA(r.id)}">Restore</button>`
+                  : `<button type="button" class="abtn ghost sm" data-fb="toggle" data-id="${escA(r.id)}">${off ? "Show" : "Hide"}</button>
+                     <button type="button" class="abtn danger sm" data-fb="delbuilt" data-id="${escA(r.id)}">Delete</button>`}
+                ${r.o ? `<button type="button" class="abtn ghost sm" data-fb="restore" data-id="${escA(r.id)}">Reset text</button>` : ""}`
                 : `<button type="button" class="abtn ghost sm" data-fb="up" data-id="${escA(r.id)}" title="Move up">↑</button><button type="button" class="abtn ghost sm" data-fb="down" data-id="${escA(r.id)}" title="Move down">↓</button>
                    <button type="button" class="abtn danger sm" data-fb="delete" data-id="${escA(r.id)}">Delete</button>`}
             </td></tr>`; }).join("")}
@@ -2723,14 +2731,15 @@ function viewFormBuilder(el) {
   if (typeSel) { typeSel.addEventListener("change", syncOpts); syncOpts(); }
   $ams("#fbCancel", el)?.addEventListener("click", () => go());
   $ams("#fbReset", el)?.addEventListener("click", () => {
-    if (!confirm("Remove ALL custom questions, edits and hidden settings and restore the original form?\n\nAnswers already entered by applicants are kept in their records.")) return;
-    const n = cfg.custom.length; cfg.custom = []; cfg.hidden = []; cfg.overrides = {};
+    if (!sure("remove ALL custom questions, edits and hidden/deleted settings and restore the original form? Answers already entered by applicants are kept")) return;
+    const n = cfg.custom.length; cfg.custom = []; cfg.hidden = []; cfg.overrides = {}; cfg.deleted = [];
     save("Form reset to original", `${n} custom question(s) removed`); go();
   });
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const label = form.label.value.trim(), hint = form.hint.value.trim(), req = form.required ? form.required.checked : undefined;
     if (!label) { alert("Please enter the question text."); return; }
+    if (!sure(editing ? `save the changes to "${label}"?` : `add the new question "${label}" to "${sec.title}"?`)) return;
     if (editing?.builtIn) {
       const o = {};
       if (label !== editing.label) o.label = label;
@@ -2767,21 +2776,34 @@ function viewFormBuilder(el) {
     if (act === "toggle") {
       if (r.builtIn) {
         const on = hiddenSet.has(r.id);
-        if (!on && !confirm(`Hide "${label}" from the application form?\n\nFollow-up questions that depend on this answer will also stay hidden. You can show it again at any time.`)) return;
+        if (!sure(`${on ? "show" : "hide"} "${label}" ${on ? "in" : "from"} the application form${on ? "" : "? Follow-up questions that depend on it will also stay hidden."}`)) return;
         cfg.hidden = on ? cfg.hidden.filter(x => x !== r.id) : [...cfg.hidden, r.id];
         save(on ? "Form question shown" : "Form question hidden", `${sec.title}: ${label}`);
       } else {
-        const c = cfg.custom.find(c => c.key === r.key); c.active = c.active === false;
+        const c = cfg.custom.find(c => c.key === r.key);
+        if (!sure(`${c.active === false ? "show" : "hide"} "${label}"?`)) return;
+        c.active = c.active === false;
         save(c.active ? "Form question shown" : "Form question hidden", `${sec.title}: ${label}`);
       }
       return go();
     }
+    if (act === "delbuilt") {
+      if (!sure(`permanently delete the built-in question "${label}"? Applicants will no longer see it; answers already entered stay in their records`)) return;
+      cfg.deleted = [...deletedSet, r.id];
+      cfg.hidden = cfg.hidden.filter(x => x !== r.id);
+      save("Built-in question deleted", `${sec.title}: ${label}`); return go();
+    }
+    if (act === "undelete") {
+      if (!sure(`restore the built-in question "${label}" to the application form?`)) return;
+      cfg.deleted = cfg.deleted.filter(x => x !== r.id);
+      save("Built-in question restored", `${sec.title}: ${label}`); return go();
+    }
     if (act === "restore") {
-      if (!confirm(`Restore the original wording and settings of "${r.label}"?`)) return;
+      if (!sure(`restore the original wording and settings of "${r.label}"?`)) return;
       delete cfg.overrides[r.id]; save("Form question restored", `${sec.title}: ${r.label}`); return go();
     }
     if (act === "delete") {
-      if (!confirm(`Delete the question "${label}"?\n\nApplicants will no longer see it. Answers already entered stay in their records.`)) return;
+      if (!sure(`delete the question "${label}"? Applicants will no longer see it; answers already entered stay in their records`)) return;
       cfg.custom = cfg.custom.filter(c => c.key !== r.key); save("Form question deleted", `${sec.title}: ${label}`); return go();
     }
     if (act === "up" || act === "down") {

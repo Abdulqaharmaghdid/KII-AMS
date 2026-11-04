@@ -232,7 +232,7 @@
         label: typeof f.label === "string" ? f.label : f.key, hint: f.hint || "", conditional: !!f.when })) }))));
   } catch { }
   (function applyFormCustom() {
-    const cfg = KII.formCustom(), hidden = new Set(cfg.hidden || []), overrides = cfg.overrides || {};
+    const cfg = KII.formCustom(), hidden = new Set([...(cfg.hidden || []), ...(cfg.deleted || [])]), overrides = cfg.overrides || {};
     const make = c => {
       const opts = (c.options || []).filter(Boolean), extra = { hint: c.hint || undefined, custom: true };
       if (c.type === "textarea") return text(c.key, c.label, !!c.required, c.max || 2000, extra);
