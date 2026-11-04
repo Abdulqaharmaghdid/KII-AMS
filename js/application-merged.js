@@ -137,8 +137,7 @@
       repeat("members", "Team members", [
         field("name", "Full name"), field("email", "Email", "emailparts", true, { th: "Email" }),
         field("dob", "Date of birth", "dob", false),
-        select("phoneCode", "Phone country code", phoneCodes, true, { default: "+964", th: "Code" }),
-        field("phone", "Phone number", "digits", true, { th: "Phone" }),
+        field("phone", "Phone number", "phoneparts", true, { default: "+964", th: "Phone" }),
         select("role", "Role", ["Founder", "Co-Founder", "CEO", "COO", "CTO", "Other"]),
         field("roleOther", "Specify role", "multitext", true, { when: d => d.role === "Other", th: "Role (other)" }),
         upload("cv", "CV (PDF)", ["pdf"])
@@ -422,7 +421,7 @@
         catch { errors.push(label + ": enter a full http:// or https:// URL."); }
       }
       if (f.type === "digits" && !/^\d+$/.test(value)) errors.push(label + ": use digits only.");
-      if (f.key === "phone" && f.type === "digits" && (digits(d.phoneCode + value).length < 7 || digits(d.phoneCode + value).length > 15)) errors.push(label + ": use a valid number (7–15 digits including country code).");
+      if (f.key === "phone" && (f.type === "digits" || f.type === "phoneparts") && (digits(d.phoneCode + value).length < 7 || digits(d.phoneCode + value).length > 15)) errors.push(label + ": use a valid number (7–15 digits including country code).");
       if (f.type === "phone" && !/^\+\d{7,15}$/.test(value)) errors.push(label + ": use + followed by 7–15 digits, including country code.");
       if (["date", "dob"].includes(f.type) && (!validDate(value) || (f.past && value > today()) || (f.type === "dob" && value >= today()))) errors.push(label + ": enter a valid date" + (f.past || f.type === "dob" ? " in the past." : "."));
       if (f.type === "month" && !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) errors.push(label + ": enter a valid month and year.");
@@ -658,6 +657,13 @@
         <input type="text" data-part="custom" class="${custom ? "" : "hidden"}" placeholder="name@example.com" value="${esc(custom ? value : "")}">
       </div>`;
     }
+    if (f.type === "phoneparts") {
+      const code = d.phoneCode || f.default || "+964";
+      return `<div class="phone-parts">
+        <select data-part="code" aria-label="Country code">${phoneCodes.map(c => `<option ${c === code ? "selected" : ""}>${c}</option>`).join("")}</select>
+        <input ${common} type="text" inputmode="numeric" placeholder="750 123 4567" value="${esc(value)}">
+      </div>`;
+    }
     if (f.type === "multitext") {
       const items = Array.isArray(value) ? value : (value ? [String(value)] : []);
       return `<div class="multitext">${(items.length ? items : [""]).map(v =>
@@ -789,6 +795,9 @@
         const domain = $('[data-part="domain"]', wrap).value;
         d[f.key] = domain === "__custom" ? $('[data-part="custom"]', wrap).value.trim()
           : ($('[data-part="local"]', wrap).value.trim() ? $('[data-part="local"]', wrap).value.trim() + "@" + domain : "");
+      } else if (f.type === "phoneparts") {
+        d.phoneCode = $('[data-part="code"]', wrap).value;
+        d[f.key] = $("input", wrap).value.trim();
       } else if (f.type === "checks") d[f.key] = $$("input:checked", wrap).map(el => el.value);
       else if (f.type === "checkbox") d[f.key] = $("input", wrap).checked;
       else if (f.type === "multitext") d[f.key] = $$(".multitext-row input", wrap).map(i => i.value.trim()).filter(Boolean);

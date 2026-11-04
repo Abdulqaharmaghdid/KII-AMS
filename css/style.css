@@ -318,6 +318,9 @@ h3 { font-size: 1.02rem; margin: 22px 0 4px; color: var(--primary); }
 .email-row input, .email-parts input { flex: 1; min-width: 0; }
 .email-row .at, .email-parts .at { color: var(--muted); font-weight: 600; }
 .email-row select, .email-parts select { width: auto; }
+.phone-parts { display: flex; gap: 8px; align-items: center; }
+.phone-parts select { width: 110px; flex-shrink: 0; }
+.phone-parts input { flex: 1; min-width: 0; }
 .page-narrow .birth-date { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .page-narrow .birth-date select { width: 100%; }
 .merged-file { background: none; border: 0; padding: 5px 0; color: var(--primary); text-decoration: underline; cursor: pointer; text-align: left; overflow-wrap: anywhere; font-family: inherit; font-size: inherit; }
