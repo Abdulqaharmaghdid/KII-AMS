@@ -512,6 +512,8 @@ function fillCountryCodes(el) {
       return Array.from({ length: days }, function (_, i) { return { v: i + 1, label: String(i + 1) }; });
     }
     function openCol(col) {
+      /* day is always chosen from the calendar grid — the button just closes other lists */
+      if (col === "day") { scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); return; }
       if (activeCol === col && !scrollBox.hidden) { scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); return; }
       activeCol = col; scrollBox.hidden = false;
       dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.toggle("on", b.dataset.col === col); });
@@ -541,7 +543,7 @@ function fillCountryCodes(el) {
       if (!it || it.disabled) return;
       var v = +it.dataset.v;
       if (activeCol === "year") { view.y = v; render(); openCol("month"); return; }
-      if (activeCol === "month") { view.m = v; render(); openCol("day"); return; }
+      if (activeCol === "month") { view.m = v; render(); scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); return; }
       var iso = view.y + "-" + pad(view.m + 1) + "-" + pad(v);
       commit(iso); close();
     });
