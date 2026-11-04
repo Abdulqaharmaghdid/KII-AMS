@@ -337,13 +337,14 @@
     row.city = KIILocations.canonicalCity(row.country, row.city || "");
   }
   if (!app.data.team) app.data.team = { members: [{ name: fullName, email: user.email, role: "", phoneCode: personal.phoneCode || "+964", phone: digits(personal.phone) }] };
-  /* Older drafts stored the member's full phone in one field — split into code + number. */
+  /* Older drafts stored the member's full phone in one field — split into code + number;
+     and if the number still carries a duplicated country code, strip it. */
   for (const m of (app.data.team || {}).members || []) {
-    if (m.phone && !m.phoneCode) {
-      const all = String(m.phone).replace(/\D/g, "");
-      const code = [...phoneCodes].sort((a, b) => b.length - a.length).find(c => all.startsWith(c.slice(1)));
-      if (code) { m.phoneCode = code; m.phone = all.slice(code.length - 1); } else m.phoneCode = "+964";
-    }
+    const all = String(m.phone || "").replace(/\D/g, "");
+    const code = [...phoneCodes].sort((a, b) => b.length - a.length).find(c => all.startsWith(c.slice(1)));
+    if (!m.phoneCode) m.phoneCode = code || "+964";
+    if (code && (m.phoneCode === code || !m.phoneCode)) m.phone = all.slice(code.length - 1);
+    else m.phone = all;
   }
   const toList = v => Array.isArray(v) ? v : (v ? [String(v)] : []);
   const multiKeys = { personal: ["cityOther", "linkedIn"], innovation: ["sectorOther", "subSectorOther"],
@@ -659,9 +660,12 @@
     }
     if (f.type === "phoneparts") {
       const code = d.phoneCode || f.default || "+964";
+      /* never show a duplicated country code inside the number box */
+      let shown = String(value).replace(/[^\d]/g, "");
+      if (shown.startsWith(code.slice(1))) shown = shown.slice(code.length - 1);
       return `<div class="phone-parts">
         <select data-part="code" aria-label="Country code">${phoneCodes.map(c => `<option ${c === code ? "selected" : ""}>${c}</option>`).join("")}</select>
-        <input ${common} type="text" inputmode="numeric" placeholder="750 123 4567" value="${esc(value)}">
+        <input ${common} type="text" inputmode="numeric" placeholder="750 123 4567" value="${esc(shown)}">
       </div>`;
     }
     if (f.type === "multitext") {
@@ -796,8 +800,10 @@
         d[f.key] = domain === "__custom" ? $('[data-part="custom"]', wrap).value.trim()
           : ($('[data-part="local"]', wrap).value.trim() ? $('[data-part="local"]', wrap).value.trim() + "@" + domain : "");
       } else if (f.type === "phoneparts") {
-        d.phoneCode = $('[data-part="code"]', wrap).value;
-        d[f.key] = $("input", wrap).value.trim();
+        const code = $('[data-part="code"]', wrap).value;
+        let num = $("input", wrap).value.replace(/[^\d]/g, "");
+        if (num.startsWith(code.slice(1)) && num.length > 8) num = num.slice(code.length - 1);
+        d.phoneCode = code; d[f.key] = num;
       } else if (f.type === "checks") d[f.key] = $$("input:checked", wrap).map(el => el.value);
       else if (f.type === "checkbox") d[f.key] = $("input", wrap).checked;
       else if (f.type === "multitext") d[f.key] = $$(".multitext-row input", wrap).map(i => i.value.trim()).filter(Boolean);
