@@ -13,12 +13,11 @@ if (signupForm) {
   fillCountryCodes(document.getElementById("phoneCode"));
   document.getElementById("phoneCode").value = "+964 (IQ)";
 
-  /* date of birth: USWDS-style picker — month dropdown + day and year inputs */
-  const dobY = document.getElementById("dobYear"), dobM = document.getElementById("dobMonth"), dobD = document.getElementById("dobDay");
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  dobM.innerHTML = '<option value="">Month</option>' + months.map((m,i) => `<option value="${i+1}">${m}</option>`).join("");
-  const dobValue = () => /^\d{4}$/.test(dobY.value) && dobM.value && /^\d{1,2}$/.test(dobD.value)
-    ? `${dobY.value}-${String(dobM.value).padStart(2,"0")}-${String(+dobD.value).padStart(2,"0")}` : "";
+  /* date of birth: shared calendar picker (dd-mm-yyyy display, ISO stored) */
+  const dobEl = document.getElementById("dob");
+  const dobMax = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+  if (window.KIIDatePicker) KIIDatePicker(dobEl, { max: dobMax });
+  const dobValue = () => dobEl.dataset.iso || "";
 
   /* country / province / town (two-level for Iraq, same as the application form) */
   const countryEl = document.getElementById("country"), provEl = document.getElementById("province"), townEl = document.getElementById("town"), townField = document.getElementById("townField");
@@ -66,7 +65,7 @@ if (signupForm) {
 
     if (!firstName || !secondName || !thirdName)
       return showAlert("Please enter your full name (first, second and third name).");
-    if (!dob) return showAlert("Please select your date of birth (year, month and day).");
+    if (!dob) return showAlert("Please select your date of birth from the calendar.");
     if (!passport) return showAlert("Please enter your passport number.");
     if (!country || !city) return showAlert("Please select your country and city.");
     if (!phoneCode || !phone) return showAlert("Please enter your phone number with country code.");

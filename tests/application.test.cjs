@@ -146,13 +146,11 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
     control.dispatchEvent(new w.Event("change", { bubbles: true }));
   }
   form.render("personal");
-  const dobMonth = body.querySelector('[data-date="month"]');
-  check(dobMonth?.tagName === "SELECT" && dobMonth.options.length === 13, "DOB month dropdown lists all twelve months");
-  for (const [part, value] of [["year", "2004"], ["month", "2"], ["day", "29"]]) {
-    const input = body.querySelector(`[data-date="${part}"]`);
-    input.value = value; input.dispatchEvent(new w.Event("input", { bubbles: true }));
-  }
-  check(form.application.data.personal.birthDate === "2004-02-29", "Date-of-birth picker stores valid ISO date");
+  const dobInput = body.querySelector('[data-field="birthDate"] input');
+  check(dobInput?.classList.contains("kii-date") && dobInput.placeholder === "dd-mm-yyyy", "Date of birth uses the calendar picker");
+  dobInput._dp.set("2004-02-29");
+  dobInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+  check(form.application.data.personal.birthDate === "2004-02-29", "Calendar picker stores a valid ISO date");
   check(body.querySelector('[data-key="phoneCode"]').value === "+964", "Iraq default");
   set("educationType", "Higher Education");
   check(!body.querySelector('[data-field="education"]').hidden, "Education opens conditionally");
@@ -421,9 +419,8 @@ if (require.main === module && process.argv.includes("--browser")) (async () => 
     await choose(personal, "city", "sulay", "Sulaimani");
     assert.equal(await page.locator('[data-key="postal"]').inputValue(), "46001");
     await page.locator('[data-key="postal"]').fill("46002");
-    await page.locator('[data-date="year"]').fill("2004");
-    await page.locator('[data-date="month"]').selectOption("2");
-    await page.locator('[data-date="day"]').fill("29");
+    await page.locator('[data-field="birthDate"] input').fill("29-02-2004");
+    await page.locator('[data-field="birthDate"] input').blur();
     await page.locator('[data-key="educationType"]').selectOption("Higher Education");
     const row = page.locator('[data-field="education"] .merged-row').first();
     await choose(row, "city", "erb", "Erbil");
@@ -451,11 +448,11 @@ if (require.main === module && process.argv.includes("--browser")) (async () => 
     assert.equal(saved.activeData.personal.education[0].startYear, "2022");
     assert.equal("endYear" in saved.activeData.personal.education[0], false);
     assert.match(JSON.stringify(saved.reviewSections), /Online profile or website/);
-    await page.locator('[data-date="year"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-field="birthDate"] input').scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(artifacts, "personal-desktop.png") });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('[data-date="year"]').scrollIntoViewIfNeeded();
-    await page.locator('[data-date="year"]').click();
+    await page.locator('[data-field="birthDate"] input').scrollIntoViewIfNeeded();
+    await page.locator('[data-field="birthDate"] input').click();
     await page.screenshot({ path: path.join(artifacts, "personal-mobile.png") });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Personal Background fits mobile viewport");
     await page.setViewportSize({ width: 1440, height: 1000 });

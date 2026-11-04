@@ -30,7 +30,7 @@ const api = (p, opts = {}) => fetch(BASE + p, { ...opts, headers: { "X-KII": "1"
     await A.goto(BASE + "/signup.html");
     await A.fill("#firstName", "Aram"); await A.fill("#secondName", "Karim"); await A.fill("#thirdName", "Ali");
     await A.fill("#passport", "A1234567");
-    await A.fill("#dobYear", "1995"); await A.selectOption("#dobMonth", "4"); await A.fill("#dobDay", "12");
+    await A.fill("#dob", "12-04-1995"); await A.locator("#dob").blur();
     await A.waitForFunction(() => document.querySelector("#country").value === "Iraq");
     await A.selectOption("#province", "Erbil");
     await A.fill("#phone", "7501112233"); await A.fill("#emailLocal", "aram.test");

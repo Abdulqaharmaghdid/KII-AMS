@@ -66,7 +66,7 @@
     ] },
     { id: "personal", title: "Personal Background", sub: "Tell us who you are, how to reach you, and your background.", fields: [
       field("firstName", "First name (exactly as in passport)"), field("secondName", "Second name (exactly as in passport)"), field("thirdName", "Third name (exactly as in passport)"), field("passportNo", "Passport number", "text", true, { max: 20 }),
-      field("birthDate", "Date of birth", "dob", true, { hint: "Select the month, then type the day and year." }),
+      field("birthDate", "Date of birth", "dob", true, { hint: "Pick from the calendar or type the date as dd-mm-yyyy." }),
       select("gender", "Gender", ["Male", "Female", "Prefer not to say"]),
       search("country", "Address – Country", () => KIILocations.countries(), { default: "Iraq" }),
             search("city", d => d.country === "Iraq" ? "Province / Main city" : "Address – City",
@@ -624,16 +624,7 @@
       return `<details class="merged-dropdown"><summary class="merged-dropdown-summary">${chipSummary(f, chosen)}</summary>${list}</details>${cap}`;
     }
     if (f.type === "dob" || f.type === "date") {
-      const [year, month, day] = String(value).split("-");
-      return `<div class="birth-date dob-picker">
-        <div class="dob-part dob-month"><label for="${id}-month">Month</label>
-          <select id="${id}-month" data-date="month" aria-label="Month"><option value="">Month</option>
-            ${MONTHS.map((m, i) => `<option value="${i + 1}" ${+month === i + 1 ? "selected" : ""}>${m}</option>`).join("")}</select></div>
-        <div class="dob-part dob-day"><label for="${id}-day">Day</label>
-          <input id="${id}-day" data-date="day" aria-label="Day" inputmode="numeric" maxlength="2" placeholder="DD" value="${esc(day || "")}"></div>
-        <div class="dob-part dob-year"><label for="${id}-year">Year</label>
-          <input id="${id}-year" data-date="year" aria-label="Year" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(year || "")}"></div>
-      </div>`;
+      return `<input ${common} type="text" class="kii-date" data-iso="${esc(value)}" placeholder="dd-mm-yyyy" autocomplete="off">`;
     }
     if (f.type === "month") {
       const [year, month] = String(value).split("-");
@@ -734,6 +725,7 @@
           });
         }
         if (f.type === "search") bindSearch($(".search-choice", wrap), () => options(f, d), () => !!f.freeWhen?.(d));
+        if (f.type === "dob" || f.type === "date") window.KIIDatePicker?.($("input", wrap), f.type === "dob" || f.past ? { max: today() } : {});
         if (f.type === "file") {
           $(".clear-upload", wrap)?.addEventListener("click", () => {
             (d.files ||= {})[f.key] = []; $("input", wrap).value = ""; $(".saved-files", wrap).textContent = "Saved files removed.";
@@ -756,13 +748,13 @@
       if (f.type === "repeat") {
         d[f.key] = Array.from($(".repeat-rows", wrap).children).map(row => { syncFields(f.fields, row._data, row); return row._data; });
       } else if (f.type === "file") continue;
-      else if (f.type === "dob" || f.type === "date" || f.type === "month") {
+      else if (f.type === "dob" || f.type === "date") {
+        d[f.key] = $("input", wrap).dataset.iso || "";
+      } else if (f.type === "month") {
         const parts = {};
         $$("[data-date]", wrap).forEach(el => parts[el.dataset.date] = el.value.trim());
-        const y = parts.year, m = String(+parts.month || "").padStart(2, "0"), day = String(+parts.day || "").padStart(2, "0");
-        d[f.key] = f.type === "month"
-          ? (/^\d{4}$/.test(y) && m !== "00" ? `${y}-${m}` : "")
-          : (/^\d{4}$/.test(y) && m !== "00" && day !== "00" ? `${y}-${m}-${day}` : "");
+        const y = parts.year, m = String(+parts.month || "").padStart(2, "0");
+        d[f.key] = /^\d{4}$/.test(y) && m !== "00" ? `${y}-${m}` : "";
       } else if (f.type === "checks") d[f.key] = $$("input:checked", wrap).map(el => el.value);
       else if (f.type === "checkbox") d[f.key] = $("input", wrap).checked;
       else if (f.type === "multitext") d[f.key] = $$(".multitext-row input", wrap).map(i => i.value.trim()).filter(Boolean);

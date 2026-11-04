@@ -424,3 +424,156 @@ function fillCountryCodes(el) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enhance);
   else enhance();
 })();
+
+
+/* ===== calendar date picker (dd-mm-yyyy) =====
+   Professional calendar popup shared by the signup page, the application form and
+   staff screens. The visible input shows dd-mm-yyyy; the ISO value (yyyy-mm-dd) is
+   kept in input.dataset.iso — or in a hidden twin for native <input type="date">,
+   so named fields keep posting ISO values. */
+(function () {
+  if (typeof document === "undefined" || typeof window === "undefined" || typeof document.addEventListener !== "function") return;
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  var toDisplay = function (iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : ""; };
+  var parseText = function (text) {
+    var m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(text.trim());
+    if (m) return m[3] + "-" + pad(+m[2]) + "-" + pad(+m[1]);
+    m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text.trim());
+    return m ? m[1] + "-" + pad(+m[2]) + "-" + pad(+m[3]) : "";
+  };
+  var validIso = function (iso) { var d = new Date(iso + "T00:00:00"); return !isNaN(d) && iso === d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+  var todayIso = function () { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+  var openDp = null;
+
+  function attach(input, opts) {
+    opts = opts || {};
+    if (!input || input._dp) return input && input._dp;
+    /* native <input type="date">: swap to text and keep a hidden ISO twin so
+       form submissions and name/id lookups still read yyyy-mm-dd */
+    var isoEl = input;
+    if (input.type === "date") {
+      var hidden = document.createElement("input");
+      hidden.type = "hidden"; hidden.name = input.name || ""; hidden.id = input.id || ""; hidden.value = input.value;
+      ["min", "max"].forEach(function (a) { if (input.getAttribute(a) && opts[a] == null) opts[a] = input.getAttribute(a); });
+      input.removeAttribute("name"); input.removeAttribute("id");
+      input.after(hidden); input.type = "text"; input.removeAttribute("min"); input.removeAttribute("max");
+      isoEl = hidden;
+    }
+    var getIso = function () { return isoEl === input ? (input.dataset.iso || "") : isoEl.value; };
+    var setIso = function (iso) { if (isoEl === input) input.dataset.iso = iso; else isoEl.value = iso; };
+    var min = opts.min || "1900-01-01", max = opts.max || (new Date().getFullYear() + 10) + "-12-31";
+    var yearA = +min.slice(0, 4), yearB = +max.slice(0, 4);
+    input.placeholder = input.placeholder || "dd-mm-yyyy";
+    input.autocomplete = "off"; input.inputMode = "numeric";
+    input.classList.add("kii-date");
+
+    var view = null;
+    var dp = document.createElement("div");
+    dp.className = "kii-dp"; dp.hidden = true;
+    dp.innerHTML = '<div class="kii-dp-head">' +
+      '<button type="button" class="kii-dp-nav dp-prev" aria-label="Previous month">&#8249;</button>' +
+      '<select class="dp-month" aria-label="Month">' + MONTHS.map(function (m, i) { return '<option value="' + i + '">' + m + '</option>'; }).join("") + '</select>' +
+      '<select class="dp-year" aria-label="Year">' + Array.from({ length: yearB - yearA + 1 }, function (_, i) { return '<option>' + (yearA + i) + '</option>'; }).join("") + '</select>' +
+      '<button type="button" class="kii-dp-nav dp-next" aria-label="Next month">&#8250;</button></div>' +
+      '<div class="kii-dp-week">' + ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(function (d) { return '<span>' + d + '</span>'; }).join("") + '</div>' +
+      '<div class="kii-dp-grid" role="grid"></div>' +
+      '<div class="kii-dp-foot"><button type="button" data-today>Today</button><button type="button" data-clear>Clear</button></div>';
+    document.body.appendChild(dp);
+    var grid = dp.querySelector(".kii-dp-grid"), mSel = dp.querySelector(".dp-month"), ySel = dp.querySelector(".dp-year");
+
+    function render() {
+      mSel.value = view.m; ySel.value = view.y;
+      var first = new Date(view.y, view.m, 1), today = todayIso(), sel = getIso(), cells = [];
+      for (var i = 0; i < first.getDay(); i++) cells.push('<button type="button" class="kii-dp-day empty" disabled></button>');
+      var days = new Date(view.y, view.m + 1, 0).getDate();
+      for (var d = 1; d <= days; d++) {
+        var iso = view.y + "-" + pad(view.m + 1) + "-" + pad(d);
+        var off = iso < min || iso > max;
+        cells.push('<button type="button" class="kii-dp-day' + (iso === sel ? " sel" : "") + (iso === today ? " today" : "") + '" data-iso="' + iso + '"' + (off ? " disabled" : "") + '>' + d + '</button>');
+      }
+      grid.innerHTML = cells.join("");
+    }
+    function position() {
+      var r = input.getBoundingClientRect();
+      dp.style.top = Math.min(r.bottom + 6, innerHeight - 310) + "px";
+      dp.style.left = Math.max(8, Math.min(r.left, innerWidth - 292)) + "px";
+    }
+    function open() {
+      if (openDp && openDp !== close) openDp();
+      var iso = getIso(), now = new Date();
+      view = validIso(iso) ? { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1 } : { y: now.getFullYear(), m: now.getMonth() };
+      render(); position(); dp.hidden = false; openDp = close;
+      setTimeout(function () { document.addEventListener("pointerdown", outside, true); }, 0);
+    }
+    function close() { dp.hidden = true; openDp = null; document.removeEventListener("pointerdown", outside, true); }
+    var outside = function (e) { if (!dp.contains(e.target) && e.target !== input) close(); };
+    function commit(iso) {
+      setIso(iso); input.value = toDisplay(iso);
+      input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    function refresh() { input.value = toDisplay(getIso()); }
+
+    input.addEventListener("focus", open);
+    input.addEventListener("click", function () { if (dp.hidden) open(); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !dp.hidden) { close(); e.stopPropagation(); }
+      if (e.key === "ArrowDown" && dp.hidden) open();
+    });
+    input.addEventListener("blur", function () {
+      var text = input.value.trim();
+      if (!text) return;
+      var iso = parseText(text);
+      if (iso && validIso(iso) && iso >= min && iso <= max) setIso(iso);
+      refresh();
+    });
+    dp.addEventListener("pointerdown", function (e) { e.preventDefault(); });
+    dp.addEventListener("click", function (e) {
+      var day = e.target.closest(".kii-dp-day[data-iso]");
+      if (day && !day.disabled) { commit(day.dataset.iso); close(); return; }
+      if (e.target.closest("[data-today]")) { var t = todayIso(); if (t >= min && t <= max) { commit(t); } close(); return; }
+      if (e.target.closest("[data-clear]")) {
+        setIso(""); input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
+        close();
+      }
+    });
+    dp.querySelector(".dp-prev").addEventListener("click", function () { view.m--; if (view.m < 0) { view.m = 11; view.y--; } render(); });
+    dp.querySelector(".dp-next").addEventListener("click", function () { view.m++; if (view.m > 11) { view.m = 0; view.y++; } render(); });
+    mSel.addEventListener("change", function () { view.m = +mSel.value; render(); });
+    ySel.addEventListener("change", function () { view.y = +ySel.value; render(); });
+    window.addEventListener("resize", close); window.addEventListener("scroll", close, true);
+    refresh();
+    input._dp = { open: open, close: close, refresh: refresh, set: function (iso) { if (validIso(iso)) { setIso(iso); refresh(); } } };
+    return input._dp;
+  }
+
+  window.KIIDatePicker = attach;
+  if (window.KII && !KII.datePicker) KII.datePicker = attach;
+  /* auto-attach: every native date input and every .kii-date field gets the calendar */
+  document.addEventListener("focusin", function (e) {
+    var t = e.target;
+    if (t instanceof HTMLInputElement && (t.type === "date" || t.classList.contains("kii-date")) && !t._dp) attach(t);
+  }, true);
+
+  if (!document.getElementById("kii-dp-css")) {
+    var css = document.createElement("style"); css.id = "kii-dp-css";
+    css.textContent = ".kii-dp{position:fixed;z-index:4000;width:284px;background:#fff;border:1px solid #d7dde4;border-radius:10px;box-shadow:0 12px 32px rgba(15,40,70,.18);padding:10px;font:14px/1.4 'Segoe UI',Arial,sans-serif;color:#14202b;}"
+      + ".kii-dp-head{display:flex;gap:6px;align-items:center;margin-bottom:8px}"
+      + ".kii-dp-head select{flex:1;min-width:0;height:30px;border:1px solid #c7d0da;border-radius:6px;background:#fff;font:inherit;padding:0 4px}"
+      + ".kii-dp-nav{width:30px;height:30px;border:1px solid #c7d0da;border-radius:6px;background:#f4f7fa;color:#1e4a7a;font-size:18px;line-height:1;cursor:pointer;flex:none}"
+      + ".kii-dp-nav:hover{background:#e6eef6}"
+      + ".kii-dp-week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;font-weight:700;color:#6a7684;margin-bottom:4px}"
+      + ".kii-dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}"
+      + ".kii-dp-day{height:34px;border:0;border-radius:6px;background:transparent;font:inherit;cursor:pointer;color:#14202b}"
+      + ".kii-dp-day:hover:not(:disabled):not(.empty){background:#dbeafe}"
+      + ".kii-dp-day.empty{cursor:default}"
+      + ".kii-dp-day:disabled:not(.empty){color:#b9c2cc;cursor:default}"
+      + ".kii-dp-day.today{outline:1px solid #2563eb;outline-offset:-1px}"
+      + ".kii-dp-day.sel{background:#2563eb;color:#fff;font-weight:700}"
+      + ".kii-dp-foot{display:flex;justify-content:space-between;margin-top:8px}"
+      + ".kii-dp-foot button{border:0;background:transparent;color:#2563eb;font:inherit;font-weight:600;cursor:pointer;padding:2px 4px}"
+      + ".kii-dp-foot button:hover{text-decoration:underline}";
+    document.head.appendChild(css);
+  }
+})();

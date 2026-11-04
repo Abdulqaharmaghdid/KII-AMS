@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Create Account — KII Innovation Program</title>
 <link rel="icon" type="image/png" href="asset/kii_logocl.png">
-<link rel="stylesheet" href="css/style.css?v=srv-10">
+<link rel="stylesheet" href="css/style.css?v=srv-11">
 </head>
 <body>
 <header class="topbar">
@@ -46,11 +46,8 @@
       </div>
       <div class="field">
         <label>Date of Birth <span class="req">*</span></label>
-        <div class="birth-date dob-picker">
-          <div class="dob-part dob-month"><label for="dobMonth">Month</label><select id="dobMonth"></select></div>
-          <div class="dob-part dob-day"><label for="dobDay">Day</label><input id="dobDay" inputmode="numeric" maxlength="2" placeholder="DD"></div>
-          <div class="dob-part dob-year"><label for="dobYear">Year</label><input id="dobYear" inputmode="numeric" maxlength="4" placeholder="YYYY"></div>
-        </div>
+        <input type="text" id="dob" class="kii-date" placeholder="dd-mm-yyyy" autocomplete="off" required>
+        <small class="hint">Pick from the calendar or type the date as dd-mm-yyyy.</small>
       </div>
 
       <h3>Contact</h3>
@@ -128,9 +125,9 @@
   </div>
 </div>
 
-<script src="js/server-sync.js?v=srv-10"></script>
-<script src="js/common.js?v=srv-10"></script>
-<script src="js/application-locations.js?v=srv-10"></script>
-<script src="js/auth.js?v=srv-10"></script>
+<script src="js/server-sync.js?v=srv-11"></script>
+<script src="js/common.js?v=srv-11"></script>
+<script src="js/application-locations.js?v=srv-11"></script>
+<script src="js/auth.js?v=srv-11"></script>
 </body>
 </html>
