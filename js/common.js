@@ -468,23 +468,32 @@ function fillCountryCodes(el) {
     input.autocomplete = "off"; input.inputMode = "numeric";
     input.classList.add("kii-date");
 
-    var view = null;
+    var view = null, activeCol = null;
     var dp = document.createElement("div");
     dp.className = "kii-dp"; dp.hidden = true;
+    /* clickable Day / Month / Year headers — each opens a scrollable list you can
+       scroll through, click, or type in to jump to a match */
     dp.innerHTML = '<div class="kii-dp-head">' +
       '<button type="button" class="kii-dp-nav dp-prev" aria-label="Previous month">&#8249;</button>' +
-      '<select class="dp-month" aria-label="Month">' + MONTHS.map(function (m, i) { return '<option value="' + i + '">' + m + '</option>'; }).join("") + '</select>' +
-      '<select class="dp-year" aria-label="Year">' + Array.from({ length: yearB - yearA + 1 }, function (_, i) { return '<option>' + (yearA + i) + '</option>'; }).join("") + '</select>' +
+      '<button type="button" class="kii-dp-col" data-col="day"><small>Day</small><b class="dp-day-label"></b></button>' +
+      '<button type="button" class="kii-dp-col" data-col="month"><small>Month</small><b class="dp-month-label"></b></button>' +
+      '<button type="button" class="kii-dp-col" data-col="year"><small>Year</small><b class="dp-year-label"></b></button>' +
       '<button type="button" class="kii-dp-nav dp-next" aria-label="Next month">&#8250;</button></div>' +
+      '<div class="kii-dp-scroll" hidden><div class="kii-dp-scroll-list" tabindex="0"></div><div class="kii-dp-scroll-hint">Scroll or type to find</div></div>' +
       '<div class="kii-dp-week">' + ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(function (d) { return '<span>' + d + '</span>'; }).join("") + '</div>' +
       '<div class="kii-dp-grid" role="grid"></div>' +
       '<div class="kii-dp-foot"><button type="button" data-today>Today</button><button type="button" data-clear>Clear</button></div>';
     document.body.appendChild(dp);
-    var grid = dp.querySelector(".kii-dp-grid"), mSel = dp.querySelector(".dp-month"), ySel = dp.querySelector(".dp-year");
+    var grid = dp.querySelector(".kii-dp-grid"), scrollBox = dp.querySelector(".kii-dp-scroll"),
+      scrollList = dp.querySelector(".kii-dp-scroll-list"),
+      dayLbl = dp.querySelector(".dp-day-label"), monthLbl = dp.querySelector(".dp-month-label"), yearLbl = dp.querySelector(".dp-year-label");
 
     function render() {
-      mSel.value = view.m; ySel.value = view.y;
-      var first = new Date(view.y, view.m, 1), today = todayIso(), sel = getIso(), cells = [];
+      var sel = getIso();
+      dayLbl.textContent = sel ? +sel.slice(8, 10) : "–";
+      monthLbl.textContent = MONTHS[view.m];
+      yearLbl.textContent = view.y;
+      var first = new Date(view.y, view.m, 1), today = todayIso(), cells = [];
       for (var i = 0; i < first.getDay(); i++) cells.push('<button type="button" class="kii-dp-day empty" disabled></button>');
       var days = new Date(view.y, view.m + 1, 0).getDate();
       for (var d = 1; d <= days; d++) {
@@ -494,19 +503,66 @@ function fillCountryCodes(el) {
       }
       grid.innerHTML = cells.join("");
     }
+    /* scrollable column lists: year / month / day — click to pick, type to jump */
+    function colItems(col) {
+      if (col === "year") return Array.from({ length: yearB - yearA + 1 }, function (_, i) { return { v: yearA + i, label: String(yearA + i) }; });
+      if (col === "month") return MONTHS.map(function (m, i) { return { v: i, label: m }; });
+      var days = new Date(view.y, view.m + 1, 0).getDate();
+      return Array.from({ length: days }, function (_, i) { return { v: i + 1, label: String(i + 1) }; });
+    }
+    function openCol(col) {
+      if (activeCol === col && !scrollBox.hidden) { scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); return; }
+      activeCol = col; scrollBox.hidden = false;
+      dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.toggle("on", b.dataset.col === col); });
+      var sel = getIso();
+      var current = col === "year" ? view.y : col === "month" ? view.m : (sel ? +sel.slice(8, 10) : null);
+      scrollList.innerHTML = colItems(col).map(function (it) {
+        var iso = col === "year" ? it.v + "-" + pad(view.m + 1) + "-01"
+          : col === "month" ? view.y + "-" + pad(it.v + 1) + "-01"
+          : view.y + "-" + pad(view.m + 1) + "-" + pad(it.v);
+        var off = col === "day" && (iso < min || iso > max);
+        return '<button type="button" class="kii-dp-item' + (it.v === current ? " sel" : "") + '" data-v="' + it.v + '"' + (off ? " disabled" : "") + '>' + it.label + '</button>';
+      }).join("");
+      var selItem = scrollList.querySelector(".sel");
+      if (selItem) selItem.scrollIntoView({ block: "center" });
+      scrollList.focus();
+    }
+    var jumpBuf = "", jumpTimer = null;
+    scrollList.addEventListener("keydown", function (e) {
+      if (!/^[a-z0-9]$/i.test(e.key)) return;
+      jumpBuf += e.key.toLowerCase();
+      clearTimeout(jumpTimer); jumpTimer = setTimeout(function () { jumpBuf = ""; }, 700);
+      var hit = Array.from(scrollList.children).find(function (b) { return b.textContent.toLowerCase().indexOf(jumpBuf) === 0; });
+      if (hit) { hit.scrollIntoView({ block: "center" }); hit.classList.add("jump"); setTimeout(function () { hit.classList.remove("jump"); }, 700); }
+    });
+    scrollList.addEventListener("click", function (e) {
+      var it = e.target.closest(".kii-dp-item");
+      if (!it || it.disabled) return;
+      var v = +it.dataset.v;
+      if (activeCol === "year") { view.y = v; render(); openCol("month"); return; }
+      if (activeCol === "month") { view.m = v; render(); openCol("day"); return; }
+      var iso = view.y + "-" + pad(view.m + 1) + "-" + pad(v);
+      commit(iso); close();
+    });
+    dp.querySelectorAll(".kii-dp-col").forEach(function (b) {
+      b.addEventListener("click", function () { openCol(b.dataset.col); });
+    });
     function position() {
       var r = input.getBoundingClientRect();
-      dp.style.top = Math.min(r.bottom + 6, innerHeight - 310) + "px";
-      dp.style.left = Math.max(8, Math.min(r.left, innerWidth - 292)) + "px";
+      dp.style.top = Math.min(r.bottom + 6, innerHeight - 340) + "px";
+      dp.style.left = Math.max(8, Math.min(r.left, innerWidth - 300)) + "px";
     }
     function open() {
       if (openDp && openDp !== close) openDp();
       var iso = getIso(), now = new Date();
       view = validIso(iso) ? { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1 } : { y: now.getFullYear(), m: now.getMonth() };
+      scrollBox.hidden = true; activeCol = null;
       render(); position(); dp.hidden = false; openDp = close;
       setTimeout(function () { document.addEventListener("pointerdown", outside, true); }, 0);
     }
-    function close() { dp.hidden = true; openDp = null; document.removeEventListener("pointerdown", outside, true); }
+    function close() { dp.hidden = true; scrollBox.hidden = true; activeCol = null;
+      dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); });
+      openDp = null; document.removeEventListener("pointerdown", outside, true); }
     var outside = function (e) { if (!dp.contains(e.target) && e.target !== input) close(); };
     function commit(iso) {
       setIso(iso); input.value = toDisplay(iso);
@@ -540,9 +596,8 @@ function fillCountryCodes(el) {
     });
     dp.querySelector(".dp-prev").addEventListener("click", function () { view.m--; if (view.m < 0) { view.m = 11; view.y--; } render(); });
     dp.querySelector(".dp-next").addEventListener("click", function () { view.m++; if (view.m > 11) { view.m = 0; view.y++; } render(); });
-    mSel.addEventListener("change", function () { view.m = +mSel.value; render(); });
-    ySel.addEventListener("change", function () { view.y = +ySel.value; render(); });
-    window.addEventListener("resize", close); window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", function (e) { if (!dp.contains(e.target)) close(); }, true);
     refresh();
     input._dp = { open: open, close: close, refresh: refresh, set: function (iso) { if (validIso(iso)) { setIso(iso); refresh(); } } };
     return input._dp;
@@ -559,9 +614,20 @@ function fillCountryCodes(el) {
   if (!document.getElementById("kii-dp-css")) {
     var css = document.createElement("style"); css.id = "kii-dp-css";
     css.textContent = ".kii-dp{position:fixed;z-index:4000;width:284px;background:#fff;border:1px solid #d7dde4;border-radius:10px;box-shadow:0 12px 32px rgba(15,40,70,.18);padding:10px;font:14px/1.4 'Segoe UI',Arial,sans-serif;color:#14202b;}"
-      + ".kii-dp-head{display:flex;gap:6px;align-items:center;margin-bottom:8px}"
-      + ".kii-dp-head select{flex:1;min-width:0;height:30px;border:1px solid #c7d0da;border-radius:6px;background:#fff;font:inherit;padding:0 4px}"
-      + ".kii-dp-nav{width:30px;height:30px;border:1px solid #c7d0da;border-radius:6px;background:#f4f7fa;color:#1e4a7a;font-size:18px;line-height:1;cursor:pointer;flex:none}"
+      + ".kii-dp-head{display:flex;gap:5px;align-items:center;margin-bottom:6px}"
+      + ".kii-dp-col{flex:1;min-width:0;height:44px;border:1px solid #c7d0da;border-radius:8px;background:#fff;font:inherit;padding:2px 4px;cursor:pointer;text-align:center}"
+      + ".kii-dp-col small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6a7684}"
+      + ".kii-dp-col b{font-size:14px;color:#14202b}"
+      + ".kii-dp-col:hover,.kii-dp-col.on{background:#e6eef6;border-color:#2563eb}"
+      + ".kii-dp-scroll{border:1px solid #d7dde4;border-radius:8px;margin-bottom:8px;background:#fbfcfe}"
+      + ".kii-dp-scroll-list{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;outline:none}"
+      + ".kii-dp-item{border:0;background:transparent;font:inherit;padding:7px 12px;text-align:center;cursor:pointer;color:#14202b}"
+      + ".kii-dp-item:hover:not(:disabled){background:#dbeafe}"
+      + ".kii-dp-item.sel{background:#2563eb;color:#fff;font-weight:700}"
+      + ".kii-dp-item.jump{outline:2px solid #2563eb;outline-offset:-2px}"
+      + ".kii-dp-item:disabled{color:#b9c2cc;cursor:default}"
+      + ".kii-dp-scroll-hint{font-size:10px;color:#8a94a0;text-align:center;padding:3px;border-top:1px solid #e5eaf0}"
+      + ".kii-dp-nav{width:30px;height:44px;border:1px solid #c7d0da;border-radius:8px;background:#f4f7fa;color:#1e4a7a;font-size:18px;line-height:1;cursor:pointer;flex:none}"
       + ".kii-dp-nav:hover{background:#e6eef6}"
       + ".kii-dp-week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;font-weight:700;color:#6a7684;margin-bottom:4px}"
       + ".kii-dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}"
