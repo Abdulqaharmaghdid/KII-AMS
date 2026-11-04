@@ -314,10 +314,10 @@ h3 { font-size: 1.02rem; margin: 22px 0 4px; color: var(--primary); }
 .multitext-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
 .multitext-row input { flex: 1; }
 .multitext .mt-add { margin-top: 2px; }
-.email-row { display: flex; gap: 8px; align-items: center; }
-.email-row input { flex: 1; }
-.email-row .at { color: var(--muted); font-weight: 600; }
-.email-row select { width: auto; }
+.email-row, .email-parts { display: flex; gap: 8px; align-items: center; }
+.email-row input, .email-parts input { flex: 1; min-width: 0; }
+.email-row .at, .email-parts .at { color: var(--muted); font-weight: 600; }
+.email-row select, .email-parts select { width: auto; }
 .page-narrow .birth-date { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .page-narrow .birth-date select { width: 100%; }
 .merged-file { background: none; border: 0; padding: 5px 0; color: var(--primary); text-decoration: underline; cursor: pointer; text-align: left; overflow-wrap: anywhere; font-family: inherit; font-size: inherit; }

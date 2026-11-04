@@ -24,6 +24,7 @@
   const fullName = [user.firstName, user.secondName, user.thirdName].filter(Boolean).join(" ");
   const accountPhone = String(user.phone || "").match(/^(\+\d{1,3})(?:\s*\([^)]*\))?\s*(.*)$/);
   const phoneCodes = [...new Set(COUNTRY_CODES.map(c => c.split(" ")[0]))].filter(code => /^\+\d+$/.test(code));
+  const emailDomains = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com"];
   const years = () => Array.from({ length: new Date().getFullYear() - 1899 }, (_, i) => String(new Date().getFullYear() - i));
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const listedUniversity = d => d.country === "Iraq" && !!KIILocations.institutions(d.city);
@@ -134,8 +135,10 @@
       checks("roles", "Your role in the innovation", ["Founder", "Co-Founder", "CEO", "COO", "CTO", "Other"], true, { hint: "Select all that apply." }),
       field("roleOther", "Specify your role", "multitext", true, { when: d => (d.roles || []).includes("Other") }),
       repeat("members", "Team members", [
-        field("name", "Full name"), field("email", "Email", "email"),
-        field("phone", "Phone number with country code", "phone", true, { th: "Phone" }),
+        field("name", "Full name"), field("email", "Email", "emailparts", true, { th: "Email" }),
+        field("dob", "Date of birth", "dob", false),
+        select("phoneCode", "Phone country code", phoneCodes, true, { default: "+964", th: "Code" }),
+        field("phone", "Phone number", "digits", true, { th: "Phone" }),
         select("role", "Role", ["Founder", "Co-Founder", "CEO", "COO", "CTO", "Other"]),
         field("roleOther", "Specify role", "multitext", true, { when: d => d.role === "Other", th: "Role (other)" }),
         upload("cv", "CV (PDF)", ["pdf"])
@@ -269,7 +272,7 @@
           workDuration: { "Less than 6 months": "0–6 months", "6–12 months": "7–12 months" }[s.workDuration] || (s.workDuration === "1–2 years" ? s.workDuration : ""),
           implemented: s.implemented, implementedWhere: s.implementedWhere, sdgs: s.sdgs || [] },
         team: { roles: s.role ? [roleMap[s.role] || s.role] : [], roleOther: s.roleOther || (s.role === "Member" ? "Member" : ""),
-          members: [{ name: fullName, email: user.email, role: s.role || "", phone: (accountPhone?.[1] || "+964") + digits(accountPhone?.[2]) },
+          members: [{ name: fullName, email: user.email, role: s.role || "", phoneCode: accountPhone?.[1] || "+964", phone: digits(accountPhone?.[2]) },
             ...(s.team || []).map(m => ({ name: m.tmName, email: m.tmEmail, role: m.tmRole, phone: m.tmPhone || "" }))] },
         prototype: { ipStatus: ipMap[s.ipStatus] || "", legalEntity: s.legalEntity,
           files: { drawings: d.nondegree?.files?.images } },
@@ -334,7 +337,15 @@
     if (row.endYear == null && row.endDate) row.endYear = row.endDate.slice(0, 4);
     row.city = KIILocations.canonicalCity(row.country, row.city || "");
   }
-  if (!app.data.team) app.data.team = { members: [{ name: fullName, email: user.email, role: "", phone: personal.phoneCode + digits(personal.phone) }] };
+  if (!app.data.team) app.data.team = { members: [{ name: fullName, email: user.email, role: "", phoneCode: personal.phoneCode || "+964", phone: digits(personal.phone) }] };
+  /* Older drafts stored the member's full phone in one field — split into code + number. */
+  for (const m of (app.data.team || {}).members || []) {
+    if (m.phone && !m.phoneCode) {
+      const all = String(m.phone).replace(/\D/g, "");
+      const code = [...phoneCodes].sort((a, b) => b.length - a.length).find(c => all.startsWith(c.slice(1)));
+      if (code) { m.phoneCode = code; m.phone = all.slice(code.length - 1); } else m.phoneCode = "+964";
+    }
+  }
   const toList = v => Array.isArray(v) ? v : (v ? [String(v)] : []);
   const multiKeys = { personal: ["cityOther", "linkedIn"], innovation: ["sectorOther", "subSectorOther"],
     team: ["roleOther", "skillsOther"], protection: ["ipOwnerOther"], support: ["facilitiesOther"], statement: ["heardOther"] };
@@ -404,7 +415,7 @@
       const length = String(value).trim().length;
       if (f.min && length < f.min) errors.push(`${label}: enter at least ${f.min} characters (${length} entered).`);
       if (f.max && length > f.max) errors.push(`${label}: maximum ${f.max} characters.`);
-      if (f.type === "email" && !validEmail(value)) errors.push(label + ": enter a valid email address.");
+      if ((f.type === "email" || f.type === "emailparts") && !validEmail(value)) errors.push(label + ": enter a valid email address.");
       if (f.key === "postal" && (d.country === "Iraq" ? !/^\d{5}$/.test(value) : !/^[A-Za-z0-9][A-Za-z0-9 -]{0,11}$/.test(value))) errors.push(label + (d.country === "Iraq" ? ": enter five digits for Iraq." : ": use letters, digits, spaces or hyphens."));
       if (f.type === "url") {
         try { const url = new URL(value); if (!["http:", "https:"].includes(url.protocol) || !url.hostname.includes(".")) throw Error(); }
@@ -636,6 +647,17 @@
           <input id="${id}-year" data-date="year" aria-label="Year" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(year || "")}"></div>
       </div>`;
     }
+    if (f.type === "emailparts") {
+      const [local = "", domain = ""] = String(value).split("@");
+      const custom = domain && !emailDomains.includes(domain);
+      return `<div class="email-parts">
+        <input type="text" data-part="local" placeholder="username" autocomplete="off" value="${esc(custom ? "" : local)}">
+        <span class="at">@</span>
+        <select data-part="domain">${emailDomains.map(d => `<option ${d === domain ? "selected" : ""}>${d}</option>`).join("")}
+          <option value="__custom" ${custom ? "selected" : ""}>Other domain</option></select>
+        <input type="text" data-part="custom" class="${custom ? "" : "hidden"}" placeholder="name@example.com" value="${esc(custom ? value : "")}">
+      </div>`;
+    }
     if (f.type === "multitext") {
       const items = Array.isArray(value) ? value : (value ? [String(value)] : []);
       return `<div class="multitext">${(items.length ? items : [""]).map(v =>
@@ -726,6 +748,14 @@
         }
         if (f.type === "search") bindSearch($(".search-choice", wrap), () => options(f, d), () => !!f.freeWhen?.(d));
         if (f.type === "dob" || f.type === "date") window.KIIDatePicker?.($("input", wrap), f.type === "dob" || f.past ? { max: today() } : {});
+        if (f.type === "emailparts") {
+          const sel = $('[data-part="domain"]', wrap);
+          sel.addEventListener("change", () => {
+            const custom = sel.value === "__custom";
+            $('[data-part="custom"]', wrap).classList.toggle("hidden", !custom);
+            $('[data-part="local"]', wrap).disabled = custom;
+          });
+        }
         if (f.type === "file") {
           $(".clear-upload", wrap)?.addEventListener("click", () => {
             (d.files ||= {})[f.key] = []; $("input", wrap).value = ""; $(".saved-files", wrap).textContent = "Saved files removed.";
@@ -755,6 +785,10 @@
         $$("[data-date]", wrap).forEach(el => parts[el.dataset.date] = el.value.trim());
         const y = parts.year, m = String(+parts.month || "").padStart(2, "0");
         d[f.key] = /^\d{4}$/.test(y) && m !== "00" ? `${y}-${m}` : "";
+      } else if (f.type === "emailparts") {
+        const domain = $('[data-part="domain"]', wrap).value;
+        d[f.key] = domain === "__custom" ? $('[data-part="custom"]', wrap).value.trim()
+          : ($('[data-part="local"]', wrap).value.trim() ? $('[data-part="local"]', wrap).value.trim() + "@" + domain : "");
       } else if (f.type === "checks") d[f.key] = $$("input:checked", wrap).map(el => el.value);
       else if (f.type === "checkbox") d[f.key] = $("input", wrap).checked;
       else if (f.type === "multitext") d[f.key] = $$(".multitext-row input", wrap).map(i => i.value.trim()).filter(Boolean);

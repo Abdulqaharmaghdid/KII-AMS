@@ -27,7 +27,7 @@ const data = {
   innovation: { title: "Prototype for a better future", sector: "Technology", subSector: "Software",
     explain: "An accessible innovation that helps people. ".repeat(9), problem: "People need a practical way to solve this issue. ".repeat(8),
     innovationPoint: "A new and affordable approach that costs less than existing tools. ".repeat(5), beneficiaries: "Local communities", workDuration: "0–6 months", implemented: "No", sdgs: [] },
-  team: { roles: ["Founder", "CTO"], members: [{ name: "Test Middle Applicant", email: user.email, role: "Founder", phone: "+9647501234567" }], skills: ["Software development"] },
+  team: { roles: ["Founder", "CTO"], members: [{ name: "Test Middle Applicant", email: user.email, dob: "1998-05-10", role: "Founder", phoneCode: "+964", phone: "7501234567" }], skills: ["Software development"] },
   technical: { technical: "The system combines software, sensors and local components. ".repeat(7),
     prototypeStage: "No, not yet", files: {} },
   protection: { ipStatus: "No protection yet", regulatory: "Not sure", legalEntity: "Not registered yet (individual / team)" },
