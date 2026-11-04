@@ -494,7 +494,13 @@
     const box = $(".record-box", wrap), open = $(".record-open", wrap), panel = $(".record-panel", wrap),
       preview = $(".record-preview", wrap), toggle = $(".record-toggle", wrap), timerEl = $(".record-timer", wrap),
       input = $("input[type=file]", wrap);
-    if (!box || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { if (box) box.hidden = true; return; }
+    if (!box) return;
+    const supported = !!(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== "undefined";
+    if (!supported) {
+      open?.addEventListener("click", () => showError(
+        "In-browser recording needs camera access on a secure connection. Open the system via http://localhost:8090 (not the network IP) and allow camera/microphone, or upload a video file instead."));
+      return;
+    }
     let stream = null, recorder = null, chunks = [], tickTimer = null;
     const stopCamera = () => { clearInterval(tickTimer); tickTimer = null; stream?.getTracks().forEach(t => t.stop()); stream = null; };
     const closePanel = () => { panel.hidden = true; preview.srcObject = null; stopCamera(); timerEl.textContent = ""; toggle.textContent = "Start recording"; };
@@ -638,14 +644,7 @@
       return `<input ${common} type="text" class="kii-date" data-iso="${esc(value)}" placeholder="dd-mm-yyyy" autocomplete="off">`;
     }
     if (f.type === "month") {
-      const [year, month] = String(value).split("-");
-      return `<div class="birth-date dob-picker month-picker">
-        <div class="dob-part dob-month"><label for="${id}-month">Month</label>
-          <select id="${id}-month" data-date="month" aria-label="Month"><option value="">Month</option>
-            ${MONTHS.map((m, i) => `<option value="${i + 1}" ${+month === i + 1 ? "selected" : ""}>${m}</option>`).join("")}</select></div>
-        <div class="dob-part dob-year"><label for="${id}-year">Year</label>
-          <input id="${id}-year" data-date="year" aria-label="Year" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(year || "")}"></div>
-      </div>`;
+      return `<input ${common} type="text" class="kii-date" data-iso="${esc(value)}" placeholder="Month YYYY" autocomplete="off">`;
     }
     if (f.type === "emailparts") {
       const [local = "", domain = ""] = String(value).split("@");
@@ -758,6 +757,7 @@
         }
         if (f.type === "search") bindSearch($(".search-choice", wrap), () => options(f, d), () => !!f.freeWhen?.(d));
         if (f.type === "dob" || f.type === "date") window.KIIDatePicker?.($("input", wrap), f.type === "dob" || f.past ? { max: today() } : {});
+        if (f.type === "month") window.KIIDatePicker?.($("input", wrap), { mode: "month" });
         if (f.type === "emailparts") {
           const sel = $('[data-part="domain"]', wrap);
           sel.addEventListener("change", () => {
@@ -791,10 +791,7 @@
       else if (f.type === "dob" || f.type === "date") {
         d[f.key] = $("input", wrap).dataset.iso || "";
       } else if (f.type === "month") {
-        const parts = {};
-        $$("[data-date]", wrap).forEach(el => parts[el.dataset.date] = el.value.trim());
-        const y = parts.year, m = String(+parts.month || "").padStart(2, "0");
-        d[f.key] = /^\d{4}$/.test(y) && m !== "00" ? `${y}-${m}` : "";
+        d[f.key] = $("input", wrap).dataset.iso || "";
       } else if (f.type === "emailparts") {
         const domain = $('[data-part="domain"]', wrap).value;
         d[f.key] = domain === "__custom" ? $('[data-part="custom"]', wrap).value.trim()

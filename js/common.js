@@ -444,6 +444,15 @@ function fillCountryCodes(el) {
   };
   var validIso = function (iso) { var d = new Date(iso + "T00:00:00"); return !isNaN(d) && iso === d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
   var todayIso = function () { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+  var validMonth = function (iso) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(iso || ""); };
+  var toDisplayM = function (iso) { var m = /^(\d{4})-(\d{2})$/.exec(iso || ""); return m ? MONTHS[+m[2] - 1] + " " + m[1] : ""; };
+  var parseTextM = function (text) {
+    var t = text.trim(), m = /^(\d{1,2})[-/. ](\d{4})$/.exec(t);
+    if (m) return m[2] + "-" + pad(+m[1]);
+    m = /^(\d{4})[-/. ](\d{1,2})$/.exec(t); if (m) return m[1] + "-" + pad(+m[2]);
+    var i = MONTHS.findIndex(function (n) { return t.toLowerCase().indexOf(n.toLowerCase()) === 0; }), y = /(\d{4})/.exec(t);
+    return i >= 0 && y ? y[1] + "-" + pad(i + 1) : "";
+  };
   var openDp = null;
 
   function attach(input, opts) {
@@ -462,9 +471,10 @@ function fillCountryCodes(el) {
     }
     var getIso = function () { return isoEl === input ? (input.dataset.iso || "") : isoEl.value; };
     var setIso = function (iso) { if (isoEl === input) input.dataset.iso = iso; else isoEl.value = iso; };
-    var min = opts.min || "1900-01-01", max = opts.max || (new Date().getFullYear() + 10) + "-12-31";
+    var monthMode = opts.mode === "month";
+    var min = opts.min || (monthMode ? "1900-01" : "1900-01-01"), max = opts.max || (new Date().getFullYear() + 10) + (monthMode ? "-12" : "-12-31");
     var yearA = +min.slice(0, 4), yearB = +max.slice(0, 4);
-    input.placeholder = input.placeholder || "dd-mm-yyyy";
+    input.placeholder = input.placeholder || (monthMode ? "Month YYYY" : "dd-mm-yyyy");
     input.autocomplete = "off"; input.inputMode = "numeric";
     input.classList.add("kii-date");
 
@@ -473,7 +483,15 @@ function fillCountryCodes(el) {
     dp.className = "kii-dp"; dp.hidden = true;
     /* clickable Day / Month / Year headers — each opens a scrollable list you can
        scroll through, click, or type in to jump to a match */
-    dp.innerHTML = '<div class="kii-dp-head">' +
+    dp.innerHTML = monthMode
+      ? '<div class="kii-dp-head">' +
+        '<button type="button" class="kii-dp-nav dp-prev" aria-label="Previous year">&#8249;</button>' +
+        '<button type="button" class="kii-dp-col" data-col="year"><small>Year</small><b class="dp-year-label"></b></button>' +
+        '<button type="button" class="kii-dp-nav dp-next" aria-label="Next year">&#8250;</button></div>' +
+        '<div class="kii-dp-cal"><div class="kii-dp-grid kii-dp-months" role="grid"></div>' +
+        '<div class="kii-dp-scroll" hidden><div class="kii-dp-scroll-list" tabindex="0"></div><div class="kii-dp-scroll-hint">Scroll or type to find</div></div></div>' +
+        '<div class="kii-dp-foot"><button type="button" data-today>This month</button><button type="button" data-clear>Clear</button></div>'
+      : '<div class="kii-dp-head">' +
       '<button type="button" class="kii-dp-nav dp-prev" aria-label="Previous month">&#8249;</button>' +
       '<button type="button" class="kii-dp-col" data-col="day"><small>Day</small><b class="dp-day-label"></b></button>' +
       '<button type="button" class="kii-dp-col" data-col="month"><small>Month</small><b class="dp-month-label"></b></button>' +
@@ -491,6 +509,16 @@ function fillCountryCodes(el) {
 
     function render() {
       var sel = getIso();
+      if (monthMode) {
+        yearLbl.textContent = view.y;
+        var nowM = todayIso().slice(0, 7), mCells = [];
+        for (var i = 0; i < 12; i++) {
+          var mi = view.y + "-" + pad(i + 1);
+          mCells.push('<button type="button" class="kii-dp-month' + (mi === sel ? " sel" : "") + (mi === nowM ? " today" : "") + '" data-m="' + i + '"' + (mi < min || mi > max ? " disabled" : "") + '>' + MONTHS[i].slice(0, 3) + '</button>');
+        }
+        grid.innerHTML = mCells.join("");
+        return;
+      }
       dayLbl.textContent = sel ? +sel.slice(8, 10) : "–";
       monthLbl.textContent = MONTHS[view.m].slice(0, 3);
       yearLbl.textContent = view.y;
@@ -542,7 +570,7 @@ function fillCountryCodes(el) {
       var it = e.target.closest(".kii-dp-item");
       if (!it || it.disabled) return;
       var v = +it.dataset.v;
-      if (activeCol === "year") { view.y = v; render(); openCol("month"); return; }
+      if (activeCol === "year") { view.y = v; render(); if (monthMode) { scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); } else openCol("month"); return; }
       if (activeCol === "month") { view.m = v; render(); scrollBox.hidden = true; activeCol = null; dp.querySelectorAll(".kii-dp-col").forEach(function (b) { b.classList.remove("on"); }); return; }
       var iso = view.y + "-" + pad(view.m + 1) + "-" + pad(v);
       commit(iso); close();
@@ -558,7 +586,8 @@ function fillCountryCodes(el) {
     function open() {
       if (openDp && openDp !== close) openDp();
       var iso = getIso(), now = new Date();
-      view = validIso(iso) ? { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1 } : { y: now.getFullYear(), m: now.getMonth() };
+      var ok = monthMode ? validMonth(iso) : validIso(iso);
+      view = ok ? { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1 } : { y: now.getFullYear(), m: now.getMonth() };
       scrollBox.hidden = true; activeCol = null;
       render(); position(); dp.hidden = false; openDp = close;
       setTimeout(function () { document.addEventListener("pointerdown", outside, true); }, 0);
@@ -568,10 +597,10 @@ function fillCountryCodes(el) {
       openDp = null; document.removeEventListener("pointerdown", outside, true); }
     var outside = function (e) { if (!dp.contains(e.target) && e.target !== input) close(); };
     function commit(iso) {
-      setIso(iso); input.value = toDisplay(iso);
+      setIso(iso); input.value = monthMode ? toDisplayM(iso) : toDisplay(iso);
       input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    function refresh() { input.value = toDisplay(getIso()); }
+    function refresh() { input.value = monthMode ? toDisplayM(getIso()) : toDisplay(getIso()); }
 
     input.addEventListener("focus", open);
     input.addEventListener("click", function () { if (dp.hidden) open(); });
@@ -582,27 +611,30 @@ function fillCountryCodes(el) {
     input.addEventListener("blur", function () {
       var text = input.value.trim();
       if (!text) return;
-      var iso = parseText(text);
-      if (iso && validIso(iso) && iso >= min && iso <= max) setIso(iso);
+      var iso = monthMode ? parseTextM(text) : parseText(text);
+      var good = monthMode ? validMonth(iso) : validIso(iso);
+      if (iso && good && iso >= min && iso <= max) setIso(iso);
       refresh();
     });
     dp.addEventListener("pointerdown", function (e) { e.preventDefault(); });
     dp.addEventListener("click", function (e) {
+      var mBtn = e.target.closest(".kii-dp-month[data-m]");
+      if (mBtn && !mBtn.disabled) { commit(view.y + "-" + pad(+mBtn.dataset.m + 1)); close(); return; }
       var day = e.target.closest(".kii-dp-day[data-iso]");
       if (day && !day.disabled) { commit(day.dataset.iso); close(); return; }
-      if (e.target.closest("[data-today]")) { var t = todayIso(); if (t >= min && t <= max) { commit(t); } close(); return; }
+      if (e.target.closest("[data-today]")) { var t = monthMode ? todayIso().slice(0, 7) : todayIso(); if (t >= min && t <= max) { commit(t); } close(); return; }
       if (e.target.closest("[data-clear]")) {
         setIso(""); input.value = "";
         input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
         close();
       }
     });
-    dp.querySelector(".dp-prev").addEventListener("click", function () { view.m--; if (view.m < 0) { view.m = 11; view.y--; } render(); });
-    dp.querySelector(".dp-next").addEventListener("click", function () { view.m++; if (view.m > 11) { view.m = 0; view.y++; } render(); });
+    dp.querySelector(".dp-prev").addEventListener("click", function () { if (monthMode) { view.y--; } else { view.m--; if (view.m < 0) { view.m = 11; view.y--; } } render(); });
+    dp.querySelector(".dp-next").addEventListener("click", function () { if (monthMode) { view.y++; } else { view.m++; if (view.m > 11) { view.m = 0; view.y++; } } render(); });
     window.addEventListener("resize", close);
     window.addEventListener("scroll", function (e) { if (!dp.contains(e.target)) close(); }, true);
     refresh();
-    input._dp = { open: open, close: close, refresh: refresh, set: function (iso) { if (validIso(iso)) { setIso(iso); refresh(); } } };
+    input._dp = { open: open, close: close, refresh: refresh, set: function (iso) { if ((monthMode ? validMonth : validIso)(iso)) { setIso(iso); refresh(); } } };
     return input._dp;
   }
 
@@ -642,6 +674,12 @@ function fillCountryCodes(el) {
       + ".kii-dp-day:disabled:not(.empty){color:#b9c2cc;cursor:default}"
       + ".kii-dp-day.today{outline:1px solid #2563eb;outline-offset:-1px}"
       + ".kii-dp-day.sel{background:#2563eb;color:#fff;font-weight:700}"
+      + ".kii-dp-months{grid-template-columns:repeat(3,1fr)}"
+      + ".kii-dp-month{height:40px;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;cursor:pointer;color:#14202b}"
+      + ".kii-dp-month:hover:not(:disabled){background:#dbeafe}"
+      + ".kii-dp-month:disabled{color:#b9c2cc;cursor:default}"
+      + ".kii-dp-month.today{outline:1px solid #2563eb;outline-offset:-1px}"
+      + ".kii-dp-month.sel{background:#2563eb;color:#fff;font-weight:600}"
       + ".kii-dp-foot{display:flex;justify-content:space-between;margin-top:8px}"
       + ".kii-dp-foot button{border:0;background:transparent;color:#2563eb;font:inherit;font-weight:600;cursor:pointer;padding:2px 4px}"
       + ".kii-dp-foot button:hover{text-decoration:underline}";
