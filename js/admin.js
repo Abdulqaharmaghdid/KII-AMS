@@ -294,10 +294,10 @@ function geoMap(apps) {
   const kri = PROVS.map(p => `<path d="${KRI_PATHS[p.k === "Sulaymaniyah" ? "Al-Sulaimaniyah" : p.k]}" fill="${heat(counts[p.k] || 0)}" stroke="#166e4a" stroke-width="1.5" stroke-linejoin="round"><title>${p.k}: ${counts[p.k] || 0} applicant(s)</title></path>`).join("");
   const labels = PROVS.map(p => `<text x="${p.x}" y="${p.y}" text-anchor="middle" class="geo-lbl">${p.k}${counts[p.k] ? " (" + counts[p.k] + ")" : ""}</text>`).join("");
   return `<div class="geo-wrap">
-    <svg viewBox="0 0 640 560" class="geo-map" role="img" aria-label="Map of Iraq highlighting the Kurdistan Region">
+    <svg viewBox="187 0 249 209" class="geo-map" role="img" aria-label="Map of Iraq highlighting the Kurdistan Region">
       <path d="${KRI_CTX}" fill="#f4f6f4" stroke="#ccd6cc" stroke-width="1"/>
       ${kri}${labels}
-      <text x="320" y="548" text-anchor="middle" class="geo-title">Kurdistan Region of Iraq</text>
+      <text x="312" y="12" text-anchor="middle" class="geo-title">Kurdistan Region of Iraq</text>
     </svg>
     <div class="geo-side">
       <div class="geo-row"><span class="geo-dot" style="background:#f97316"></span> Most applicants</div>

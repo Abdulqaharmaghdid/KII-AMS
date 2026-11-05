@@ -620,8 +620,8 @@ tr.kpi-sub td { font-size: .82rem; }
 .geo-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .geo-map { flex: 1; min-width: 280px; max-width: 480px; height: auto; }
 .geo-num { fill: #fff; font-size: 11px; font-weight: 700; pointer-events: none; }
-.geo-lbl { fill: #33404d; font-size: 11px; font-weight: 600; }
-.geo-title { fill: #166e4a; font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+.geo-lbl { fill: #33404d; font-size: 7px; font-weight: 600; }
+.geo-title { fill: #166e4a; font-size: 8px; font-weight: 700; letter-spacing: .4px; }
 .geo-side { min-width: 160px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--muted, #5a6675); }
 .geo-row { display: flex; align-items: center; gap: 8px; }
 .geo-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
