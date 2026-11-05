@@ -2337,12 +2337,17 @@ function viewChat(el) {
   });
   $ams("#schatForm", el)?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const btn = e.target.querySelector("button.abtn");
     const text = e.target.text.value.trim();
     const files = [];
-    for (const fl of (e.target.files?.files || [])) {
+    const picked = [...(e.target.files?.files || [])];
+    if (picked.length) { btn.disabled = true; btn.textContent = "Uploading…"; }
+    for (const fl of picked) {
       const fid = amsUid("f");
       if (await KII.saveFile(fid, fl)) files.push({ fileId: fid, name: fl.name, size: fl.size, type: fl.type });
+      else alert(`Could not upload "${fl.name}" — it may be too large, please try again.`);
     }
+    btn.disabled = false; btn.textContent = "Send";
     if (!text && !files.length) return;
     if (cur.external) {
       amsPostChat(cur.appId, { from: "staff", name: staff.name + " (KII)", text, files });

@@ -347,12 +347,17 @@ if (user) {
   document.getElementById("chatForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const rec = getRec();
+    const btn = e.target.querySelector("button");
     const text = e.target.text.value.trim();
     const files = [];
-    for (const fl of (e.target.files?.files || [])) {
+    const picked = [...(e.target.files?.files || [])];
+    if (picked.length) { btn.disabled = true; btn.textContent = "Uploading…"; }
+    for (const fl of picked) {
       const fid = amsUid("f");
       if (await KII.saveFile(fid, fl)) files.push({ fileId: fid, name: fl.name, size: fl.size, type: fl.type });
+      else alert(`Could not upload "${fl.name}" — it may be too large, please try again.`);
     }
+    btn.disabled = false; btn.textContent = "Send";
     if (!rec || (!text && !files.length)) return;
     const fullName = user.firstName + " " + user.secondName + " " + user.thirdName;
     amsPostChat(rec.id, { from: "applicant", name: fullName, text, files });
