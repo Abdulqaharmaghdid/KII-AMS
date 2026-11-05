@@ -2262,45 +2262,59 @@ function viewTasks(el) {
 function viewChat(el) {
   const room = P.get("room") || "grp:general";
   const people = amsGetStaff().filter(s => s.id !== staff.id);
-  const groups = amsGetApplicants().map(a => ({ room: "grp:" + a.id, name: a.name, kind: "Project group" }));
-  const rooms = [
+  const apps = amsGetApplicants();
+  const teamRooms = [
     { room: "grp:general", name: "All Staff (General)", kind: "Group" },
     ...people.map(s => ({ room: "dm:" + [staff.id, s.id].sort().join(":"), name: s.name, kind: s.title || s.roleLabel || "Staff", direct: s.id })),
-    ...groups,
+    ...apps.map(a => ({ room: "grp:" + a.id, name: a.name, kind: "Project group" })),
   ];
+  const applicantRooms = apps.map(a => ({ room: "app:" + a.id, name: a.applicantName || a.name, kind: a.name, appId: a.id, external: true }));
+  const rooms = [...teamRooms, ...applicantRooms];
   const cur = rooms.find(r => r.room === room) || null;
-  const msgs = cur ? amsGetStaffChat(cur.room) : [];
+  const msgs = cur ? (cur.external ? amsGetChat(cur.appId) : amsGetStaffChat(cur.room)) : [];
 
   el.innerHTML = `
     <div class="page-head-row"><div><div class="page-title">Team Chat</div>
-      <div class="page-sub">Message any staff member directly, or use a project group for everyone working on it</div></div></div>
+      <div class="page-sub">Internal — chat with the team or a project group · External — message an applicant directly</div></div></div>
     <div class="chat-layout">
       <div class="chat-rooms">
-        <div class="chat-rooms-h">People</div>
-        ${rooms.map(r => `<a class="chat-room ${cur && r.room === cur.room ? "on" : ""}" href="?v=chat&room=${encodeURIComponent(r.room)}">
+        <div class="chat-rooms-h">Internal — Team</div>
+        ${teamRooms.map(r => `<a class="chat-room ${cur && r.room === cur.room ? "on" : ""}" href="?v=chat&room=${encodeURIComponent(r.room)}">
           <span class="chat-av">${escA(r.name.slice(0, 2).toUpperCase())}</span>
           <span><b>${escA(r.name)}</b><small>${escA(r.kind)}</small></span></a>`).join("")}
+        <div class="chat-rooms-h" style="border-top:1px solid #eef1f5;margin-top:6px;padding-top:10px">External — Applicants</div>
+        ${applicantRooms.map(r => `<a class="chat-room ${cur && r.room === cur.room ? "on" : ""}" href="?v=chat&room=${encodeURIComponent(r.room)}">
+          <span class="chat-av" style="background:#0e7490">${escA(r.name.slice(0, 2).toUpperCase())}</span>
+          <span><b>${escA(r.name)}</b><small>${escA(r.kind)}</small></span></a>`).join("")
+          || '<div class="sub2" style="padding:6px 10px">No applicants yet.</div>'}
       </div>
       <div class="chat-main ams-card" style="margin:0;display:flex;flex-direction:column">
-        ${cur ? `<h3 style="margin-top:0">${escA(cur.name)}</h3>
-        <div id="schatBox" class="chat-box">${msgs.map(m => `
-          <div class="chat-msg ${m.fromId === staff.id ? "mine" : ""}">
-            <div class="chat-who">${escA(m.fromName)} <small>${new Date(m.date).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small></div>
-            <div class="chat-bub">${escA(m.text)}</div></div>`).join("")
-          || '<div class="empty-state">No messages yet — say hello.</div>'}</div>
+        ${cur ? `<h3 style="margin-top:0">${escA(cur.name)} ${cur.external ? '<span class="chip" style="background:#ecfeff;color:#0e7490">Applicant</span>' : '<span class="chip" style="background:#e7f4ee;color:#166e4a">Team</span>'}</h3>
+        <div id="schatBox" class="chat-box">${msgs.map(m => {
+          const mine = cur.external ? m.from === "staff" : m.fromId === staff.id;
+          const who = cur.external ? (m.from === "staff" ? m.name : (m.name || "Applicant")) : m.fromName;
+          return `<div class="chat-msg ${mine ? "mine" : ""}">
+            <div class="chat-who">${escA(who)} <small>${new Date(m.date).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small></div>
+            <div class="chat-bub">${escA(m.text)}</div></div>`;
+        }).join("") || '<div class="empty-state">No messages yet — say hello.</div>'}</div>
         <form id="schatForm" style="display:flex;gap:9px;margin-top:12px">
           <input name="text" placeholder="Message ${escA(cur.name)}…" required autocomplete="off"
             style="flex:1;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
           <button class="abtn">Send</button></form>`
-        : '<div class="empty-state" style="padding:40px">Select a person or project group on the left to start chatting.</div>'}
+        : '<div class="empty-state" style="padding:40px">Select a person, project group or applicant on the left to start chatting.</div>'}
       </div>
     </div>`;
   const box = $ams("#schatBox", el);
   if (box) box.scrollTop = box.scrollHeight;
   $ams("#schatForm", el)?.addEventListener("submit", (e) => {
     e.preventDefault();
-    amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text: e.target.text.value.trim() });
-    if (cur.direct) amsNotify(cur.direct, `Message from ${staff.name}: "${e.target.text.value.trim().slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`);
+    const text = e.target.text.value.trim();
+    if (cur.external) {
+      amsPostChat(cur.appId, { from: "staff", name: staff.name + " (KII)", text });
+    } else {
+      amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text });
+      if (cur.direct) amsNotify(cur.direct, `Message from ${staff.name}: "${text.slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`);
+    }
     nav(`?v=chat&room=${encodeURIComponent(cur.room)}`);
   });
 }
