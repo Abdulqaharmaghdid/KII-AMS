@@ -2654,6 +2654,9 @@ function viewDocuments(el) {
 /* ============ VIEW: TEAM & ROLES ============ */
 function viewTeam(el) {
   const list = amsGetStaff();
+  const roles = amsGetRoles();
+  const roleEntries = Object.entries(roles);
+  const customRoles = roleEntries.filter(([k]) => !ROLES[k]);
   const canEdit = (s) =>
     s.id !== staff.id &&
     (s.role !== "master_admin" || staff.role === "master_admin");
@@ -2671,12 +2674,36 @@ function viewTeam(el) {
             <div class="sub2" style="margin-top:3px">The staff member must change it at first sign-in.</div></div>
           <div><label>Job Title</label><input name="title" placeholder="e.g. Technical Engineer"></div>
           <div><label>Role</label><select name="role">
-            ${Object.entries(ROLES).filter(([k]) => k !== "master_admin" || staff.role === "master_admin")
+            ${roleEntries.filter(([k]) => k !== "master_admin" || staff.role === "master_admin")
               .map(([k, r]) => `<option value="${k}">${r.label}</option>`).join("")}
           </select></div>
         </div>
         <button class="abtn sm" style="margin-top:10px">${IC.plus} Create Staff Account</button>
       </form>
+    </div>
+
+    <div class="ams-card"><h3>Access Control — Role Permission Matrix</h3>
+      <div class="sub2" style="margin-bottom:10px">Choose what each role can do across the whole system. New staff get their role's permissions; you can also give individual staff personal overrides below.</div>
+      <div style="overflow-x:auto"><table class="tbl acl-matrix"><thead><tr>
+        <th style="text-align:left">Permission</th>
+        ${roleEntries.map(([k, r]) => `<th>${escA(r.label)}${!ROLES[k] ? `<br><button class="abtn danger sm" data-roledel="${k}" style="margin-top:3px">Delete</button>` : k === "master_admin" ? '<br><small class="sub2">full access</small>' : ""}</th>`).join("")}
+      </tr></thead><tbody>
+      ${ALL_PERMS.map(p => `<tr>
+        <td><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></td>
+        ${roleEntries.map(([k, r]) => `<td><input type="checkbox" data-roleperm="${k}|${p}"
+          ${r.perms.includes(p) ? "checked" : ""} ${k === "master_admin" ? "disabled" : ""}></td>`).join("")}
+      </tr>`).join("")}
+      </tbody></table></div>
+      <div style="margin-top:16px;border-top:1px solid #eef1f5;padding-top:14px">
+        <h4 style="margin:0 0 8px">Create Custom Role</h4>
+        <form id="newRoleForm" class="inline-form">
+          <input name="rlabel" required placeholder="Role name — e.g. Finance Officer"
+            style="padding:8px 12px;border:1px solid #d6dee6;border-radius:8px;min-width:240px">
+          <div class="perm-grid" style="margin:10px 0">${ALL_PERMS.map(p =>
+            `<label><input type="checkbox" name="rperm" value="${p}"> ${PERM_LABELS[p]}</label>`).join("")}</div>
+          <button class="abtn sm">${IC.plus} Create Role</button>
+        </form>
+      </div>
     </div>
 
     ${staff.role === "master_admin" ? sectorEditorHtml() : ""}
@@ -2693,7 +2720,7 @@ function viewTeam(el) {
             </div>
             ${editable ? `
               <select data-role-id="${s.id}">
-                ${Object.entries(ROLES).filter(([k]) => k !== "master_admin" || staff.role === "master_admin")
+                ${roleEntries.filter(([k]) => k !== "master_admin" || staff.role === "master_admin")
                   .map(([k, r]) => `<option value="${k}" ${s.role === k ? "selected" : ""}>${r.label}</option>`).join("")}
               </select>
               <button class="abtn ${s.active ? "danger" : ""} sm" data-toggle="${s.id}">
@@ -2718,10 +2745,10 @@ function viewTeam(el) {
     amsAddStaff({
       id: amsUid("st"), name: f.name.value.trim(), email: f.email.value.trim(),
       ...amsPwFields(f.password.value), mustChangePassword: true,
-      role, title: f.title.value.trim() || ROLES[role].label,
-      active: true, perms: [...ROLES[role].perms], createdAt: new Date().toISOString(),
+      role, title: f.title.value.trim() || roles[role].label,
+      active: true, perms: [...roles[role].perms], createdAt: new Date().toISOString(),
     });
-    amsAudit(staff.name, "Staff account created", `${f.name.value.trim()} <${f.email.value.trim()}> as ${ROLES[role].label}`);
+    amsAudit(staff.name, "Staff account created", `${f.name.value.trim()} <${f.email.value.trim()}> as ${roles[role].label}`);
     route();
   });
 
@@ -2740,9 +2767,10 @@ function viewTeam(el) {
   $$ams("[data-role-id]", el).forEach(sel => sel.addEventListener("change", () => {
     const s = amsGetStaff().find(x => x.id === sel.dataset.roleId);
     if (!s) return;
-    const title = !s.title || s.title === ROLES[s.role]?.label ? ROLES[sel.value].label : s.title;
-    amsUpdateStaff(s.id, { role: sel.value, title, perms: [...ROLES[sel.value].perms] });
-    amsAudit(staff.name, "Role changed", `${s.name}: ${ROLES[s.role]?.label} → ${ROLES[sel.value].label}`);
+    const rr = amsGetRoles();
+    const title = !s.title || s.title === rr[s.role]?.label ? rr[sel.value].label : s.title;
+    amsUpdateStaff(s.id, { role: sel.value, title, perms: [...rr[sel.value].perms] });
+    amsAudit(staff.name, "Role changed", `${s.name}: ${amsGetRoles()[s.role]?.label || s.role} → ${amsGetRoles()[sel.value].label}`);
     route();
   }));
 
@@ -2754,6 +2782,36 @@ function viewTeam(el) {
     amsUpdateStaff(s.id, { perms: [...perms] });
     amsAudit(staff.name, cb.checked ? "Permission granted" : "Permission revoked", `${s.name}: ${PERM_LABELS[cb.value]}`);
   }));
+
+  /* ACL: role matrix + custom roles */
+  $$ams("[data-roleperm]", el).forEach(cb => cb.addEventListener("change", () => {
+    const [roleId, perm] = cb.dataset.roleperm.split("|");
+    const def = amsGetRoles()[roleId];
+    if (!def) return;
+    const perms = cb.checked ? [...new Set([...def.perms, perm])] : def.perms.filter(p => p !== perm);
+    amsSaveRole(roleId, { label: def.label, perms });
+    amsAudit(staff.name, cb.checked ? "Role permission granted" : "Role permission revoked",
+      `${def.label}: ${PERM_LABELS[perm]}`);
+    nav("?v=team");
+  }));
+  $$ams("[data-roledel]", el).forEach(b => b.addEventListener("click", () => {
+    const users = amsGetStaff().filter(s => s.role === b.dataset.roledel);
+    if (users.length) { alert(`Cannot delete — ${users.length} staff member(s) still have this role.`); return; }
+    if (!confirm(`Delete role "${amsGetRoles()[b.dataset.roledel]?.label}"?`)) return;
+    amsDeleteRole(b.dataset.roledel);
+    amsAudit(staff.name, "Custom role deleted", b.dataset.roledel);
+    nav("?v=team");
+  }));
+  $ams("#newRoleForm", el)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const perms = [...f.querySelectorAll('input[name="rperm"]:checked')].map(c => c.value);
+    if (!perms.length) { alert("Select at least one permission for the role."); return; }
+    const id = "role_" + amsUid("r");
+    amsSaveRole(id, { label: f.rlabel.value.trim(), perms });
+    amsAudit(staff.name, "Custom role created", `${f.rlabel.value.trim()} (${perms.length} permissions)`);
+    nav("?v=team");
+  });
   if (staff.role === "master_admin") bindSectorEditor(el);
 }
 

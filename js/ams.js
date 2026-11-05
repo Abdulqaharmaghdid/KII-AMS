@@ -12,6 +12,7 @@ const AMS = {
   ITASK_KEY: "kii_ams_itasks",
   STCHAT_KEY: "kii_ams_stchat",
   GROUPS_KEY: "kii_ams_groups",
+  ROLES_KEY: "kii_ams_roles",
 };
 
 /* ---------- roles & permissions ---------- */
@@ -492,6 +493,21 @@ function amsPostStaffChat(room, msg) {
 }
 
 /* staff-created group chats: staff members + optionally ONE applicant (applicants never see each other) */
+/* ---------- ACL: editable role templates (custom roles + per-role permission sets) ---------- */
+function amsGetRoles() {
+  let custom = {};
+  try { custom = JSON.parse(localStorage.getItem(AMS.ROLES_KEY)) || {}; } catch {}
+  return { ...ROLES, ...custom, master_admin: ROLES.master_admin }; // master admin is never editable
+}
+function amsSaveRole(id, def) {
+  let c = {}; try { c = JSON.parse(localStorage.getItem(AMS.ROLES_KEY)) || {}; } catch {}
+  if (id === "master_admin") return;
+  c[id] = def; localStorage.setItem(AMS.ROLES_KEY, JSON.stringify(c));
+}
+function amsDeleteRole(id) {
+  let c = {}; try { c = JSON.parse(localStorage.getItem(AMS.ROLES_KEY)) || {}; } catch {}
+  delete c[id]; localStorage.setItem(AMS.ROLES_KEY, JSON.stringify(c));
+}
 function amsGetGroups() {
   try { return JSON.parse(localStorage.getItem(AMS.GROUPS_KEY)) || []; } catch { return []; }
 }
