@@ -2924,6 +2924,32 @@ function viewReportDoc(el) {
         Generated ${amsFmtDate(today)} by ${escA(staff.name)} · ${docNo}</div>
     </div>`;
 
+  /* official cover page — the first thing the recipient sees */
+  const coverPage = (typeLabel, name, sub, rows) => `
+    <div class="dossier-cover">
+      <img src="asset/kii_logocl.png" alt="KII" class="dc-logo">
+      <div class="dc-inst">Kurdistan Innovation Institute</div>
+      <div class="dc-sys">Application Management System</div>
+      <div class="dc-rule"></div>
+      <div class="dc-type">${escA(typeLabel)}</div>
+      <div class="dc-name">${escA(name)}</div>
+      ${sub ? `<div class="dc-sub">${escA(sub)}</div>` : ""}
+      <div class="dc-meta">
+        ${rows.map(([k, v]) => `<div class="dc-mrow"><span>${k}</span><b>${v}</b></div>`).join("")}
+      </div>
+      <div class="dc-foot">Confidential — for authorized KII personnel only<br>Report No. ${docNo} · ${amsFmtDate(today)}</div>
+    </div><div class="page-break"></div>`;
+
+  /* table of contents */
+  const contentsPage = items => `
+    <div class="report-sheet" style="padding-top:30px">
+      <h2 class="toc-title">Contents</h2>
+      <table class="tbl report-tbl toc-tbl"><tbody>
+        ${items.map((t, i) => `<tr><td class="toc-n">${i + 1}</td><td><b>${escA(t)}</b></td></tr>`).join("")}
+        <tr><td class="toc-n">§</td><td><b>Sign-off</b></td></tr>
+      </tbody></table>
+    </div><div class="page-break"></div>`;
+
   /* ================= APPLICANT DOSSIER ================= */
   if (type === "applicant") {
     const a = amsGetApplicant(id);
@@ -2958,7 +2984,14 @@ function viewReportDoc(el) {
         <table class="tbl report-tbl"><tbody>${rows.join("")}</tbody></table>`;
     }).join("");
 
-    el.innerHTML = back + head("Applicant Dossier", `${a.name} — ${a.applicantName || ""}`) + `
+    const toc = ["Applicant Profile", "Application Overview", "Application Answers — Complete Record",
+      "Documents & Uploads", "Tasks & Follow-up", "Meetings", "Expert Evaluations",
+      "Financial Support & Procurement", "Decisions", "Activity Log", "Communication"];
+    el.innerHTML = back +
+      coverPage("Applicant Dossier", a.applicantName || a.name, a.name,
+        [["Report No.", docNo], ["Date", amsFmtDate(today)], ["Prepared by", escA(staff.name)], ["Sector", escA(a.sector || "—")], ["Stage", escA(a.stage)]]) +
+      contentsPage(toc) +
+      head("Applicant Dossier", `${a.name} — ${a.applicantName || ""}`) + `
       ${sec(1, "Applicant Profile", `<div style="display:flex;gap:22px;align-items:flex-start">
         ${p.photoFileId ? `<img class="dossier-photo" data-photo="${escA(p.photoFileId)}" alt="photo">` : ""}
         ${kv([
@@ -3024,7 +3057,13 @@ function viewReportDoc(el) {
       <td>${amsFmtDate(t.due)}</td><td>${escA(t.status)}</td><td>${escA(t.priority || "—")}</td>
       <td>${t.assignedTo === s.name ? "Assigned" : "Created"}</td></tr>`);
 
-    el.innerHTML = back + head("Staff Member Dossier", `${s.name} — ${s.title || roles[s.role]?.label || s.role}`) + `
+    const tocS = ["Account & Access", "Permissions", "Workload & Tasks", "Evaluations Submitted",
+      "Meetings Conducted", "Applicants Handled", "Activity Log"];
+    el.innerHTML = back +
+      coverPage("Staff Member Dossier", s.name, `${s.title || roles[s.role]?.label || s.role} · ${s.email}`,
+        [["Report No.", docNo], ["Date", amsFmtDate(today)], ["Prepared by", escA(staff.name)], ["Role", escA(roles[s.role]?.label || s.role)], ["Status", s.active ? "Active" : "Restricted"]]) +
+      contentsPage(tocS) +
+      head("Staff Member Dossier", `${s.name} — ${s.title || roles[s.role]?.label || s.role}`) + `
       ${sec(1, "Account & Access", `<div style="display:flex;gap:22px;align-items:flex-start">
         <div class="avatar-lg">${escA(s.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase())}</div>
         ${kv([

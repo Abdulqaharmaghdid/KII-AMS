@@ -716,3 +716,22 @@ tr.kpi-sub td { font-size: .82rem; }
 .kv-k { width: 210px; color: #6b7684; font-weight: 600; white-space: nowrap; }
 .app-sec-h { font-size: 12px; font-weight: 800; color: #0f2d24; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .5px; border-left: 3px solid #166e4a; padding-left: 8px; }
 .perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* dossier cover + contents */
+.dossier-cover { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 60px 40px; background: linear-gradient(160deg,#0f2d24 0%,#166e4a 60%,#1d7a55 100%); color: #fff; border-radius: 14px; margin-bottom: 18px; }
+.dc-logo { width: 110px; height: 110px; object-fit: contain; margin-bottom: 18px; background:#fff; border-radius:50%; padding:10px; }
+.dc-inst { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
+.dc-sys { font-size: 15px; opacity: .85; margin-top: 4px; letter-spacing: 2px; text-transform: uppercase; }
+.dc-rule { width: 120px; height: 3px; background: #d4af37; margin: 26px 0; }
+.dc-type { font-size: 20px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #f0d98c; }
+.dc-name { font-size: 34px; font-weight: 800; margin-top: 14px; line-height: 1.2; }
+.dc-sub { font-size: 16px; opacity: .9; margin-top: 8px; }
+.dc-meta { margin-top: 34px; display: inline-block; text-align: left; border: 1px solid rgba(255,255,255,.35); border-radius: 10px; overflow: hidden; }
+.dc-mrow { display: flex; justify-content: space-between; gap: 40px; padding: 9px 22px; border-bottom: 1px solid rgba(255,255,255,.15); font-size: 13px; }
+.dc-mrow:last-child { border-bottom: none; }
+.dc-mrow span { opacity: .75; } .dc-mrow b { font-weight: 600; }
+.dc-foot { position: absolute; bottom: 34px; font-size: 11.5px; opacity: .75; line-height: 1.7; }
+.toc-title { font-size: 22px; font-weight: 800; color: #0f2d24; margin-bottom: 18px; }
+.toc-tbl td { padding: 9px 14px; font-size: 13.5px; }
+.toc-n { width: 46px; text-align: center; font-weight: 800; color: #166e4a; }
+.page-break { page-break-after: always; }
+@media print { .dossier-cover { min-height: 96vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
