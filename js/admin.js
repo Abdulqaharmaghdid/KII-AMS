@@ -2527,7 +2527,24 @@ function portfolioBlock(apps) {
 }
 
 function viewReports(el) {
-  const apps = amsGetApplicants();
+  const fFrom = P.get("from") || "", fTo = P.get("to") || "";
+  const fSector = P.get("sector") || "", fStage = P.get("stage") || "";
+  const fStatus = P.get("status") || "", fAssigned = P.get("assigned") || "";
+  const fScope = P.get("scope") || "";
+  const allApps = amsGetApplicants();
+  const sectors = [...new Set(allApps.map(a => a.sector).filter(Boolean))].sort();
+  const assignees = [...new Set(allApps.map(a => a.assignedToName).filter(Boolean))].sort();
+
+  const apps = allApps.filter(a =>
+    (!fFrom || (a.appliedDate || "") >= fFrom) &&
+    (!fTo || (a.appliedDate || "") <= fTo) &&
+    (!fSector || a.sector === fSector) &&
+    (!fStage || a.stage === fStage) &&
+    (!fStatus || a.status === fStatus || a.outcome === fStatus) &&
+    (!fAssigned || a.assignedToName === fAssigned) &&
+    (!fScope || (fScope === "in" ? a.inScope : !a.inScope)));
+
+  const tasks = allTasks().filter(t => !t.appId || apps.some(a => a.id === t.appId) || t.internal);
   const support = apps.reduce((s, a) => s + (a.supportApproved || 0), 0);
   const spent = apps.reduce((s, a) => s + (a.spent || 0), 0);
   const byStage = STAGES.map(s => ({ label: s, value: apps.filter(a => a.stage === s).length, color: STAGE_COLORS[s] }));
@@ -2536,8 +2553,15 @@ function viewReports(el) {
   const secColors = ["#22c55e", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#64748b"];
   const sectorSegs = Object.entries(sectorMap).map(([k, v], i) => ({ label: k, value: v, color: secColors[i % secColors.length] }));
 
-  const tasks = allTasks();
   const decisions = apps.reduce((s, a) => s + (a.decisions || []).length, 0);
+  const meetings = apps.flatMap(a => (a.meetings || []).map(m => ({ ...m, appName: a.name })));
+  const prs = apps.flatMap(a => (a.procurement || []).map(p => ({ ...p, appName: a.name })));
+  const prsPending = prs.filter(p => p.status === "Pending");
+  const prsApproved = prs.filter(p => p.status === "Approved");
+  const pendingVal = prsPending.reduce((s, p) => s + (p.amount || 0), 0);
+  const apprVal = prsApproved.reduce((s, p) => s + (p.amount || 0), 0);
+  const evals = apps.flatMap(a => (a.evaluations || []).map(e => ({ ...e, appName: a.name })));
+  const staffList = amsGetStaff();
   const supportReq = {};
   apps.forEach(a => (a.supportRequested || []).forEach(s => supportReq[s] = (supportReq[s] || 0) + 1));
   const byAssignee = {};
@@ -2547,55 +2571,153 @@ function viewReports(el) {
     else { byAssignee[t.assignedTo].open++; if (daysUntil(t.due) < 0) byAssignee[t.assignedTo].overdue++; }
   });
 
+  const filterDesc = [fFrom && `from ${amsFmtDate(fFrom)}`, fTo && `to ${amsFmtDate(fTo)}`,
+    fSector, fStage, fStatus, fAssigned && `assigned ${fAssigned}`, fScope].filter(Boolean).join(" · ") || "All records";
+
+  const th = `<th style="text-align:left">Applicant</th><th style="text-align:left">Project</th><th>Sector</th><th>Stage</th><th>Status / Outcome</th><th>Assigned</th><th>Applied</th><th>Progress</th><th>Support Approved</th>`;
+
   el.innerHTML = `
-    <div class="page-head-row">
+    <div class="page-head-row no-print">
       <div><div class="page-title">Reports</div>
-      <div class="page-sub">Program summary — generated ${amsFmtDate(new Date().toISOString())}</div></div>
+      <div class="page-sub">Professional program report — generated ${amsFmtDate(new Date().toISOString())}</div></div>
       <div class="qa-row">
         <button class="abtn ghost sm" id="csvApps">${IC.doc} Applicants CSV</button>
         <button class="abtn ghost sm" id="csvTasks">${IC.doc} Tasks CSV</button>
         <button class="abtn ghost sm" id="csvEvals">${IC.doc} Evaluations CSV</button>
+        <button class="abtn ghost sm" id="csvMeet">${IC.doc} Meetings CSV</button>
+        <button class="abtn ghost sm" id="csvPR">${IC.doc} Procurement CSV</button>
         <button class="abtn sm" onclick="window.print()">${IC.report} Print Report</button>
       </div>
     </div>
-    <div class="grid-2col">
-      <div class="ams-card"><h3>Applications by Stage</h3>${barChart(byStage)}</div>
-      <div class="ams-card"><h3>Sector Distribution</h3>${donut(sectorSegs, apps.length, "Total")}</div>
-    </div>
-    <div class="grid-2col">
-      <div class="ams-card"><h3>Financial Summary</h3>
-        <table class="tbl"><tbody>
-          <tr><td>Total approved support</td><td class="text-right"><b>${amsMoney(support)}</b></td></tr>
-          <tr><td>Total spent</td><td class="text-right"><b>${amsMoney(spent)}</b></td></tr>
-          <tr><td>Remaining</td><td class="text-right"><b class="money-green">${amsMoney(support - spent)}</b></td></tr>
-          <tr><td>Utilization</td><td class="text-right"><b>${support ? Math.round(spent / support * 100) : 0}%</b></td></tr>
-        </tbody></table>
+
+    <form id="reportFilters" class="filter-bar no-print">
+      <label>From <input type="date" name="from" value="${escA(fFrom)}"></label>
+      <label>To <input type="date" name="to" value="${escA(fTo)}"></label>
+      <label>Sector <select name="sector"><option value="">All</option>
+        ${sectors.map(s => `<option ${s === fSector ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
+      <label>Stage <select name="stage"><option value="">All</option>
+        ${STAGES.map(s => `<option ${s === fStage ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
+      <label>Status <select name="status"><option value="">All</option>
+        ${["Active", "Inactive", "Under Evaluation", "Pitch Deck", "Rejected", "Withdrawn", "Approved", "Submitted Form"].map(s => `<option ${s === fStatus ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
+      <label>Assigned <select name="assigned"><option value="">All</option>
+        ${assignees.map(s => `<option ${s === fAssigned ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
+      <label>Scope <select name="scope"><option value="">All</option>
+        <option value="in" ${fScope === "in" ? "selected" : ""}>In scope</option>
+        <option value="out" ${fScope === "out" ? "selected" : ""}>Out of scope</option></select></label>
+      <button class="abtn sm" type="submit">Apply</button>
+      <a class="abtn ghost sm" href="?v=reports">Reset</a>
+    </form>
+
+    <div class="report-sheet">
+      <div class="report-head">
+        <img src="asset/kii_logocl.png" alt="KII" class="report-logo">
+        <div>
+          <div class="report-title">Kurdistan Innovation Institute</div>
+          <div class="report-sub">Application Management System — Program Report</div>
+        </div>
+        <div class="report-meta">
+          <div><b>Generated:</b> ${amsFmtDate(new Date().toISOString())}</div>
+          <div><b>By:</b> ${escA(staff.name)} (${escA(staff.title || rolesLabel(staff))})</div>
+          <div><b>Filter:</b> ${escA(filterDesc)}</div>
+          <div><b>Call:</b> ${escA(amsGetSettings().callName)}</div>
+        </div>
       </div>
-      <div class="ams-card"><h3>Key Numbers</h3>
-        <table class="tbl"><tbody>
-          <tr><td>Total applicants</td><td class="text-right"><b>${apps.length}</b></td></tr>
-          <tr><td>Active projects</td><td class="text-right"><b>${apps.filter(a => a.status === "Active").length}</b></td></tr>
-          <tr><td>Under evaluation</td><td class="text-right"><b>${apps.filter(a => a.stage === "Under Evaluation").length}</b></td></tr>
-          <tr><td>Decisions recorded</td><td class="text-right"><b>${decisions}</b></td></tr>
-          <tr><td>Open / overdue tasks</td><td class="text-right"><b>${tasks.filter(t => t.status !== "Completed").length} / ${tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length}</b></td></tr>
-          <tr><td>Support requests</td><td class="text-right"><b>${Object.entries(supportReq).map(([k, v]) => `${k}: ${v}`).join(" · ") || "—"}</b></td></tr>
-        </tbody></table>
+
+      <h2 class="report-sec">1. Executive Summary</h2>
+      <table class="tbl report-tbl"><tbody>
+        <tr><td>Total applicants</td><td class="text-right"><b>${apps.length}</b></td>
+        <td>Active projects</td><td class="text-right"><b>${apps.filter(a => a.status === "Active").length}</b></td>
+        <td>Under evaluation</td><td class="text-right"><b>${apps.filter(a => a.stage === "Under Evaluation" || a.stage === "Pitch Deck").length}</b></td></tr>
+        <tr><td>Decisions recorded</td><td class="text-right"><b>${decisions}</b></td>
+        <td>Meetings held / scheduled</td><td class="text-right"><b>${meetings.length}</b></td>
+        <td>Staff members</td><td class="text-right"><b>${staffList.length}</b></td></tr>
+      </tbody></table>
+
+      <h2 class="report-sec">2. Applications by Stage &amp; Sector</h2>
+      <div class="grid-2col">
+        <div class="ams-card"><h3>Applications by Stage</h3>${barChart(byStage)}</div>
+        <div class="ams-card"><h3>Sector Distribution</h3>${donut(sectorSegs, apps.length, "Total")}</div>
       </div>
-    </div>
-    ${portfolioBlock(apps)}
-    <div class="grid-2col">
-      <div class="ams-card"><h3>Tasks by Team Member</h3>
+
+      <h2 class="report-sec">3. Financial Summary</h2>
+      <table class="tbl report-tbl"><tbody>
+        <tr><td>Total approved support</td><td class="text-right"><b>${amsMoney(support)}</b></td>
+        <td>Total spent</td><td class="text-right"><b>${amsMoney(spent)}</b></td>
+        <td>Remaining</td><td class="text-right"><b class="money-green">${amsMoney(support - spent)}</b></td>
+        <td>Utilization</td><td class="text-right"><b>${support ? Math.round(spent / support * 100) : 0}%</b></td></tr>
+      </tbody></table>
+      <div class="sub2" style="margin-top:6px">Support requests: ${Object.entries(supportReq).map(([k, v]) => `${escA(k)} ×${v}`).join(" · ") || "—"}</div>
+
+      <h2 class="report-sec">4. Applicant Register (${apps.length})</h2>
+      <table class="tbl report-tbl"><thead><tr>${th}</tr></thead><tbody>
+        ${apps.map(a => `<tr>
+          <td><b>${escA(a.applicantName || "—")}</b></td><td>${escA(a.name)}</td><td>${escA(a.sector || "—")}</td>
+          <td>${escA(a.stage)}</td><td>${escA(a.status)}${a.outcome ? ` / ${escA(a.outcome)}` : ""}</td>
+          <td>${escA(a.assignedToName || "—")}</td><td>${amsFmtDate(a.appliedDate)}</td><td>${a.progress ?? 0}%</td>
+          <td>${a.supportApproved ? amsMoney(a.supportApproved) : "—"}</td></tr>`).join("")
+          || '<tr><td colspan="9"><div class="empty-state">No applicants match the filters.</div></td></tr>'}
+      </tbody></table>
+
+      <h2 class="report-sec">5. Procurement Summary</h2>
+      <table class="tbl report-tbl"><tbody>
+        <tr><td>Pending PRs</td><td class="text-right"><b>${prsPending.length}</b></td>
+        <td>Pending value</td><td class="text-right"><b>${amsMoney(pendingVal)}</b></td>
+        <td>Approved PRs</td><td class="text-right"><b>${prsApproved.length}</b></td>
+        <td>Approved value</td><td class="text-right"><b>${amsMoney(apprVal)}</b></td></tr>
+      </tbody></table>
+      ${prs.length ? `<table class="tbl report-tbl" style="margin-top:10px"><thead><tr>
+        <th>PR #</th><th style="text-align:left">Applicant / Project</th><th style="text-align:left">Title</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead><tbody>
+        ${prs.map(p => `<tr><td>${escA(p.number || p.id || "—")}</td><td>${escA(p.appName)}</td><td>${escA(p.title || p.desc || "—")}</td>
+          <td>${p.amount ? amsMoney(p.amount) : "—"}</td><td>${amsFmtDate(p.date)}</td><td>${escA(p.status)}</td></tr>`).join("")}
+      </tbody></table>` : '<div class="empty-state">No purchase requests.</div>'}
+
+      <h2 class="report-sec">6. Meetings Summary (${meetings.length})</h2>
+      <table class="tbl report-tbl"><thead><tr>
+        <th style="text-align:left">Applicant / Project</th><th style="text-align:left">Meeting</th><th>Date</th><th>Time</th><th style="text-align:left">Location</th><th>Status</th></tr></thead><tbody>
+        ${meetings.map(m => `<tr><td>${escA(m.appName)}</td><td>${escA(m.title)}</td><td>${amsFmtDate(m.date)}</td>
+          <td>${escA(m.time || "—")}</td><td>${escA(m.location || "—")}</td><td>${escA(m.status)}</td></tr>`).join("")
+          || '<tr><td colspan="6"><div class="empty-state">No meetings.</div></td></tr>'}
+      </tbody></table>
+
+      <h2 class="report-sec">7. Tasks Summary</h2>
+      <table class="tbl report-tbl"><tbody>
+        <tr><td>Open</td><td class="text-right"><b>${tasks.filter(t => t.status !== "Completed").length}</b></td>
+        <td>Overdue</td><td class="text-right"><b>${tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length}</b></td>
+        <td>Completed</td><td class="text-right"><b>${tasks.filter(t => t.status === "Completed").length}</b></td></tr>
+      </tbody></table>
+      <div class="ams-card" style="margin-top:10px"><h3>Tasks by Team Member</h3>
         <table class="tbl"><thead><tr><th>Member</th><th>Open</th><th>Overdue</th><th>Completed</th></tr></thead><tbody>
         ${Object.entries(byAssignee).map(([n, c]) => `<tr><td><b>${escA(n)}</b></td><td>${c.open}</td><td>${c.overdue ? `<span style="color:#dc2626">${c.overdue}</span>` : 0}</td><td>${c.done}</td></tr>`).join("")
           || '<tr><td colspan="4"><div class="empty-state">No tasks.</div></td></tr>'}
-        </tbody></table>
-      </div>
-      <div class="ams-card"><h3>Applicant Summary</h3>
-        <table class="tbl"><thead><tr><th>Applicant</th><th>Sector</th><th>Stage</th><th>Progress</th><th>Approved</th><th>Spent</th></tr></thead><tbody>
-        ${apps.map(a => `<tr><td><b>${escA(a.name)}</b></td><td>${escA(a.sector)}</td><td>${escA(a.stage)}</td><td>${a.progress}%</td><td>${amsMoney(a.supportApproved)}</td><td>${amsMoney(a.spent)}</td></tr>`).join("")}
-        </tbody></table>
-      </div>
+        </tbody></table></div>
+
+      <h2 class="report-sec">8. Evaluations Summary (${evals.length})</h2>
+      <table class="tbl report-tbl"><thead><tr>
+        <th style="text-align:left">Applicant / Project</th><th style="text-align:left">Expert</th><th>Date</th><th>Score</th><th>Status</th><th style="text-align:left">Recommendation</th></tr></thead><tbody>
+        ${evals.map(e => `<tr><td>${escA(e.appName)}</td><td>${escA(e.expert)}</td><td>${amsFmtDate(e.date)}</td>
+          <td>${evalTotal(e) ?? "—"}</td><td>${escA(e.status)}</td><td>${escA(e.recommendation || "—")}</td></tr>`).join("")
+          || '<tr><td colspan="6"><div class="empty-state">No evaluations yet.</div></td></tr>'}
+      </tbody></table>
+
+      <h2 class="report-sec">9. Portfolio Health (KPI)</h2>
+      ${portfolioBlock(apps)}
+
+      <h2 class="report-sec">10. Staff &amp; Access</h2>
+      <table class="tbl report-tbl"><thead><tr><th style="text-align:left">Name</th><th style="text-align:left">Email</th><th>Job Title</th><th>Role</th><th>Status</th></tr></thead><tbody>
+        ${staffList.map(s => `<tr><td><b>${escA(s.name)}</b></td><td>${escA(s.email)}</td><td>${escA(s.title || "—")}</td>
+          <td>${escA(amsGetRoles()[s.role]?.label || s.role)}</td><td>${s.active ? "Active" : "Restricted"}</td></tr>`).join("")}
+      </tbody></table>
+
+      <div class="report-foot">Kurdistan Innovation Institute · Confidential — for internal management use only · Generated by ${escA(staff.name)} on ${amsFmtDate(new Date().toISOString())}</div>
     </div>`;
+
+  $ams("#reportFilters", el).addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = e.target;
+    nav(`?v=reports&from=${f.from.value}&to=${f.to.value}&sector=${encodeURIComponent(f.sector.value)}` +
+      `&stage=${encodeURIComponent(f.stage.value)}&status=${encodeURIComponent(f.status.value)}` +
+      `&assigned=${encodeURIComponent(f.assigned.value)}&scope=${f.scope.value}`);
+  });
 
   $ams("#csvApps", el).addEventListener("click", () =>
     downloadCsv("kii-applicants.csv", [
@@ -2616,6 +2738,21 @@ function viewReports(el) {
     downloadCsv("kii-evaluations.csv", [["Applicant", "Expert", "Date", "Total /100", ...RUBRIC.map(c => c.label + " (1-5)"),
       "Recommendation", "Status", "Comments"], ...rows]);
   });
+
+  $ams("#csvMeet", el).addEventListener("click", () =>
+    downloadCsv("kii-meetings.csv", [
+      ["Applicant", "Meeting", "Date", "Time", "Location", "Status"],
+      ...meetings.map(m => [m.appName, m.title, amsFmtDate(m.date), m.time || "", m.location || "", m.status])]));
+
+  $ams("#csvPR", el).addEventListener("click", () =>
+    downloadCsv("kii-procurement.csv", [
+      ["PR #", "Applicant", "Title", "Amount", "Date", "Status"],
+      ...prs.map(p => [p.number || p.id || "", p.appName, p.title || p.desc || "", p.amount || 0, amsFmtDate(p.date), p.status])]));
+}
+
+function rolesLabel(s) {
+  const r = (typeof amsGetRoles === "function" ? amsGetRoles() : ROLES)[s.role];
+  return r ? r.label : s.role;
 }
 
 /* ============ VIEW: DOCUMENTS (all) ============ */
