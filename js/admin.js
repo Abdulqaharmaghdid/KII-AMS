@@ -273,6 +273,46 @@ function statCard(color, bg, icon, num, lbl, sub) {
 }
 
 /* ============ VIEW: DASHBOARD ============ */
+/* stylised Kurdistan Region map: city markers sized/coloured by applicant counts */
+function geoMap(apps) {
+  const CITIES = [
+    { k: "Duhok", al: ["duhok", "dohuk", "dehok"], x: 92, y: 72 },
+    { k: "Erbil", al: ["erbil", "hewler", "hewl", "arbil"], x: 195, y: 150 },
+    { k: "Kirkuk", al: ["kirkuk", "kerkuk"], x: 158, y: 220 },
+    { k: "Sulaymaniyah", al: ["sulaymaniyah", "sulaimani", "silemani", "slimani"], x: 292, y: 172 },
+    { k: "Halabja", al: ["halabja", "halabjah"], x: 320, y: 212 },
+  ];
+  const counts = {}; let other = 0;
+  for (const a of apps) {
+    const city = String(a.application?.personal?.city || a.location || "").toLowerCase();
+    const hit = CITIES.find(c => c.al.some(s => city.includes(s)));
+    if (hit) counts[hit.k] = (counts[hit.k] || 0) + 1; else other++;
+  }
+  const max = Math.max(1, ...Object.values(counts));
+  const heat = v => !v ? "#d1d5db" : v / max < .34 ? "#86efac" : v / max < .67 ? "#fbbf24" : "#f97316";
+  const kri = "M62 42 L200 26 L335 52 L358 120 L330 178 L298 232 L222 268 L152 258 L112 228 L72 168 L46 112 Z";
+  const markers = CITIES.map(c => {
+    const v = counts[c.k] || 0, r = v ? 11 + Math.min(9, v * 2.5) : 8;
+    return `<g><circle cx="${c.x}" cy="${c.y}" r="${r}" fill="${heat(v)}" stroke="#fff" stroke-width="2"><title>${c.k}: ${v} applicant(s)</title></circle>
+      ${v ? `<text x="${c.x}" y="${c.y + 4}" text-anchor="middle" class="geo-num">${v}</text>` : ""}
+      <text x="${c.x}" y="${c.y + r + 14}" text-anchor="middle" class="geo-lbl">${c.k}</text></g>`;
+  }).join("");
+  return `<div class="geo-wrap">
+    <svg viewBox="0 0 400 300" class="geo-map" role="img" aria-label="Map of the Kurdistan Region">
+      <path d="${kri}" fill="#eef6ef" stroke="#166e4a" stroke-width="2" stroke-linejoin="round"/>
+      <text x="200" y="18" text-anchor="middle" class="geo-title">Kurdistan Region</text>
+      ${markers}
+    </svg>
+    <div class="geo-side">
+      <div class="geo-row"><span class="geo-dot" style="background:#f97316"></span> Most applicants</div>
+      <div class="geo-row"><span class="geo-dot" style="background:#fbbf24"></span> Medium</div>
+      <div class="geo-row"><span class="geo-dot" style="background:#86efac"></span> Few</div>
+      <div class="geo-row"><span class="geo-dot" style="background:#d1d5db"></span> None</div>
+      <div class="geo-tot"><b>${apps.length}</b> applicant(s) in view</div>
+      <div class="geo-tot"><b>${other}</b> other / unspecified cities</div>
+    </div>
+  </div>`;
+}
 function viewDashboard(el) {
   const settings = amsGetSettings();
   const inactDays = settings.inactiveDays;
@@ -361,6 +401,8 @@ function viewDashboard(el) {
       <div class="ams-card"><h3>Application Status</h3>${donut(statusSegs.length ? statusSegs : [{ label: "None", value: 1, color: "#e2e8f0" }], total, "Total")}</div>
       <div class="ams-card"><h3>Sector Distribution</h3>${donut(sectorSegs.length ? sectorSegs : [{ label: "None", value: 1, color: "#e2e8f0" }], total, "Total")}</div>
     </div>
+
+    <div class="ams-card"><h3>Applications by Geography — Kurdistan</h3>${geoMap(apps)}</div>
 
     <div class="ams-card"><h3>Action Required <a href="?v=tasks">View All Tasks</a></h3>
       <div class="ar-cols">
