@@ -682,3 +682,30 @@ tr.kpi-sub td { font-size: .82rem; }
   .ams-card { break-inside: avoid; }
   body { background: #fff; }
 }
+/* professional report letterhead */
+.letterhead { display: flex; align-items: center; gap: 18px; padding-bottom: 16px; border-bottom: 3px double #166e4a; }
+.letterhead-mid { flex: 1; }
+.lh-name { font-size: 22px; font-weight: 800; color: #0f2d24; letter-spacing: .3px; }
+.lh-line { color: #166e4a; font-weight: 700; font-size: 13.5px; margin-top: 2px; }
+.lh-line2 { color: #4a5866; font-size: 12.5px; margin-top: 2px; }
+.lh-meta { border-collapse: collapse; font-size: 11.5px; }
+.lh-meta td { padding: 2px 6px 2px 10px; color: #4a5866; text-align: right; white-space: nowrap; }
+.lh-meta td:first-child { text-align: left; font-weight: 600; color: #8a94a3; }
+.lh-meta td:last-child { font-weight: 600; color: #0f2d24; }
+.filter-note { font-size: 11.5px; color: #8a94a3; margin: 8px 0 4px; font-style: italic; }
+.exec-body p { font-size: 13.5px; line-height: 1.75; color: #24313d; margin: 0 0 10px; }
+.kpi-strip { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.kpi { flex: 1; min-width: 110px; background: #f0f5f2; border: 1px solid #dde7e0; border-radius: 10px; padding: 12px 14px; text-align: center; }
+.kpi b { display: block; font-size: 19px; color: #166e4a; }
+.kpi span { font-size: 11px; color: #6b7684; text-transform: uppercase; letter-spacing: .5px; }
+.report-sec .sec-no { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #166e4a; color: #fff; border-radius: 50%; font-size: 12px; margin-right: 8px; vertical-align: -4px; }
+.findings { margin: 4px 0 0; padding-left: 22px; }
+.findings li { font-size: 13px; line-height: 1.7; color: #24313d; margin-bottom: 5px; }
+.recs { margin: 4px 0 0; padding-left: 22px; }
+.recs li { font-size: 13px; line-height: 1.7; color: #24313d; margin-bottom: 6px; }
+.sig-block { display: flex; gap: 40px; margin-top: 46px; page-break-inside: avoid; }
+.sig-col { flex: 1; }
+.sig-line { border-bottom: 1.5px solid #33404d; height: 44px; }
+.sig-name { font-weight: 700; font-size: 13px; color: #0f2d24; margin-top: 6px; }
+.sig-role { font-size: 11.5px; color: #6b7684; }
+.sig-date { font-size: 11px; color: #8a94a3; margin-top: 4px; }

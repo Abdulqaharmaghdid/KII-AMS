@@ -2538,7 +2538,6 @@ function viewReports(el) {
   const sectors = [...new Set(allApps.map(a => a.sector).filter(Boolean))].sort();
   const assignees = [...new Set(allApps.map(a => a.assignedToName).filter(Boolean))].sort();
 
-  /* base filters (dates / sector / stage / status / assigned / scope) */
   let apps = allApps.filter(a =>
     (!fFrom || (a.appliedDate || "") >= fFrom) &&
     (!fTo || (a.appliedDate || "") <= fTo) &&
@@ -2548,7 +2547,6 @@ function viewReports(el) {
     (!fAssigned || a.assignedToName === fAssigned) &&
     (!fScope || (fScope === "in" ? a.inScope : !a.inScope)));
 
-  /* report-type scoping */
   const rSel = { all: "Everything", applicant: "One applicant", staff: "One staff member", sector: "One sector",
     tasks: "Tasks only", meetings: "Meetings only", procurement: "Procurement only", evaluations: "Evaluations only" };
   let reportLabel = rSel[rType] || "Everything";
@@ -2599,7 +2597,6 @@ function viewReports(el) {
     if (t.status === "Completed") byAssignee[t.assignedTo].done++;
     else { byAssignee[t.assignedTo].open++; if (daysUntil(t.due) < 0) byAssignee[t.assignedTo].overdue++; }
   });
-  /* staff performance numbers for a staff report */
   const staffPerf = staffFocus ? {
     tasksDone: tasks.filter(t => t.status === "Completed" && (t.assignedTo === staffFocus.name || t.byId === staffFocus.id)).length,
     tasksOpen: tasks.filter(t => t.status !== "Completed" && (t.assignedTo === staffFocus.name || t.byId === staffFocus.id)).length,
@@ -2607,6 +2604,41 @@ function viewReports(el) {
     meetingsHeld: meetings.length,
     appsHandled: apps.length,
   } : null;
+
+  /* ---- narrative data for the professional summary ---- */
+  const underEvalN = apps.filter(a => a.stage === "Under Evaluation" || a.stage === "Pitch Deck").length;
+  const activeN = apps.filter(a => a.status === "Active").length;
+  const staleN = apps.filter(a => a.status === "Active" && amsDaysSince(a.lastActivity) > amsGetSettings().inactiveDays).length;
+  const overdueT = tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length;
+  const openT = tasks.filter(t => t.status !== "Completed").length;
+  const doneT = tasks.filter(t => t.status === "Completed").length;
+  const utilization = support ? Math.round(spent / support * 100) : 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const periodText = fFrom || fTo ? `from ${fFrom ? amsFmtDate(fFrom) : "the beginning"} to ${fTo ? amsFmtDate(fTo) : "the present"}` : "the full reporting period";
+  const topSector = Object.entries(sectorMap).sort((a, b) => b[1] - a[1])[0];
+
+  const execParas = [
+    `During ${periodText}, the Kurdistan Innovation Institute recorded <b>${apps.length}</b> application(s) in scope of this report, of which <b>${activeN}</b> are active projects and <b>${underEvalN}</b> are currently under evaluation or awaiting pitch review. ${topSector ? `The largest sector represented is <b>${escA(topSector[0])}</b> with ${topSector[1]} application(s).` : ""}`,
+    `Financially, approved support commitments total <b>${amsMoney(support)}</b>, of which <b>${amsMoney(spent)}</b> has been spent (${utilization}% utilization), leaving <b>${amsMoney(support - spent)}</b> available. Procurement activity comprises <b>${prs.length}</b> purchase request(s): ${prsPending.length} pending (${amsMoney(pendingVal)}) and ${prsApproved.length} approved (${amsMoney(apprVal)}).`,
+    `Operationally, the team logged <b>${tasks.length}</b> task(s) — ${openT} open and ${doneT} completed, with <b>${overdueT}</b> overdue — and conducted <b>${meetings.length}</b> meeting(s). <b>${decisions}</b> formal decision(s) were recorded. ${staleN ? `<b>${staleN}</b> active applicant(s) have shown no activity beyond the inactivity threshold and require follow-up.` : "No applicants currently exceed the inactivity threshold."}`,
+  ];
+
+  const findings = [
+    apps.length ? `${apps.length} application(s) analysed across ${Object.keys(sectorMap).length || 0} sector(s); ${byStage.reduce((s, x) => s + x.value, 0)} reach the stage distribution shown in Section 3.` : "No applications match the selected filters.",
+    underEvalN ? `${underEvalN} case(s) are in the evaluation pipeline — ensure expert reviewers are assigned to avoid delays.` : "No cases are currently awaiting evaluation.",
+    overdueT ? `${overdueT} task(s) are overdue and should be re-prioritised or their deadlines renegotiated.` : "No tasks are currently overdue.",
+    prsPending.length ? `${prsPending.length} purchase request(s) worth ${amsMoney(pendingVal)} await approval.` : "No purchase requests are pending approval.",
+    utilization >= 80 ? `Support utilisation is high (${utilization}%) — plan additional funding requests for active projects.` : utilization > 0 ? `Support utilisation stands at ${utilization}%; remaining balance is ${amsMoney(support - spent)}.` : "No support has been committed yet.",
+    staleN ? `${staleN} applicant(s) are inactive beyond the threshold — consider outreach or closure.` : "Applicant activity levels are healthy.",
+  ];
+
+  const recommendations = [
+    overdueT ? `Clear or reschedule the ${overdueT} overdue task(s) within the next week.` : null,
+    prsPending.length ? `Review and decide the ${prsPending.length} pending purchase request(s) totalling ${amsMoney(pendingVal)}.` : null,
+    staleN ? `Contact the ${staleN} inactive applicant(s) or move them toward closure.` : null,
+    underEvalN ? `Assign evaluators to the ${underEvalN} case(s) awaiting evaluation to keep the pipeline moving.` : null,
+    !overdueT && !prsPending.length && !staleN && !underEvalN ? "No urgent actions identified — maintain current cadence of reviews and reporting." : null,
+  ].filter(Boolean);
 
   const filterDesc = [fFrom && `from ${amsFmtDate(fFrom)}`, fTo && `to ${amsFmtDate(fTo)}`,
     fSector, fStage, fStatus, fAssigned && `assigned ${fAssigned}`, fScope].filter(Boolean).join(" · ") || "All records";
@@ -2630,7 +2662,7 @@ function viewReports(el) {
       <label>Report on <select name="r" id="rType">
         ${Object.entries(rSel).map(([k, v]) => `<option value="${k}" ${k === rType ? "selected" : ""}>${v}</option>`).join("")}
       </select></label>
-      <label id="entityWrap">Entity <select name="id" id="rEntity">
+      <label>Entity <select name="id" id="rEntity">
         <option value="">—</option>
         ${rType === "staff" ? staffList.map(s => `<option value="${escA(s.id)}" ${s.id === rId ? "selected" : ""}>${escA(s.name)}</option>`).join("")
           : rType === "sector" ? sectors.map(s => `<option value="${escA(s)}" ${s === rId ? "selected" : ""}>${escA(s)}</option>`).join("")
@@ -2655,22 +2687,47 @@ function viewReports(el) {
     </form>
 
     <div class="report-sheet">
-      <div class="report-head">
+      <!-- letterhead -->
+      <div class="letterhead">
         <img src="asset/kii_logocl.png" alt="KII" class="report-logo">
-        <div>
-          <div class="report-title">Kurdistan Innovation Institute</div>
-          <div class="report-sub">Application Management System — Program Report</div>
+        <div class="letterhead-mid">
+          <div class="lh-name">Kurdistan Innovation Institute</div>
+          <div class="lh-line">Application Management System · Program Monitoring Report</div>
+          <div class="lh-line2">${escA(amsGetSettings().callName)} · ${escA(reportLabel)}</div>
         </div>
-        <div class="report-meta">
-          <div><b>Report:</b> ${escA(reportLabel)}</div>
-          <div><b>Generated:</b> ${amsFmtDate(new Date().toISOString())}</div>
-          <div><b>By:</b> ${escA(staff.name)} (${escA(staff.title || roles[staff.role]?.label || staff.role)})</div>
-          <div><b>Filter:</b> ${escA(filterDesc)}</div>
-          <div><b>Call:</b> ${escA(amsGetSettings().callName)}</div>
+        <table class="lh-meta"><tbody>
+          <tr><td>Report No.</td><td>KII-RPT-${today.replace(/-/g, "")}-${amsUid("n").slice(-4).toUpperCase()}</td></tr>
+          <tr><td>Date</td><td>${amsFmtDate(today)}</td></tr>
+          <tr><td>Period</td><td>${escA(periodText)}</td></tr>
+          <tr><td>Prepared by</td><td>${escA(staff.name)}</td></tr>
+          <tr><td>Classification</td><td><b>Confidential — Internal</b></td></tr>
+        </tbody></table>
+      </div>
+      <div class="filter-note">Scope of data: ${escA(filterDesc)}</div>
+
+      <!-- 1. executive summary -->
+      <h2 class="report-sec"><span class="sec-no">1</span> Executive Summary</h2>
+      <div class="exec-body">
+        ${execParas.map(p => `<p>${p}</p>`).join("")}
+        <div class="kpi-strip">
+          <div class="kpi"><b>${apps.length}</b><span>Applicants</span></div>
+          <div class="kpi"><b>${underEvalN}</b><span>Under evaluation</span></div>
+          <div class="kpi"><b>${amsMoney(support)}</b><span>Support committed</span></div>
+          <div class="kpi"><b>${utilization}%</b><span>Utilized</span></div>
+          <div class="kpi"><b>${overdueT}</b><span>Overdue tasks</span></div>
         </div>
       </div>
 
-      ${staffFocus ? `<h2 class="report-sec">1. Staff Performance — ${escA(staffFocus.name)}</h2>
+      <!-- 2. findings -->
+      ${sec("summary") || sec("stage") || sec("financial") || sec("register") || sec("procurement") || sec("meetings") || sec("tasks") || sec("evaluations") || sec("portfolio") || sec("staff") ? `<h2 class="report-sec"><span class="sec-no">2</span> Key Findings</h2>
+      <ul class="findings">${findings.map(f => `<li>${f}</li>`).join("")}</ul>` : ""}
+
+      <!-- 3. recommendations -->
+      <h2 class="report-sec"><span class="sec-no">3</span> Recommendations</h2>
+      <ol class="recs">${recommendations.map(r => `<li>${r}</li>`).join("")}</ol>
+
+      <!-- detail sections -->
+      ${staffFocus ? `<h2 class="report-sec"><span class="sec-no">4</span> Staff Performance — ${escA(staffFocus.name)}</h2>
       <table class="tbl report-tbl"><tbody>
         <tr><td>Role / Title</td><td class="text-right"><b>${escA(roles[staffFocus.role]?.label || staffFocus.role)} · ${escA(staffFocus.title || "")}</b></td>
         <td>Status</td><td class="text-right"><b>${staffFocus.active ? "Active" : "Restricted"}</b></td>
@@ -2683,32 +2740,22 @@ function viewReports(el) {
         <td></td><td></td></tr>
       </tbody></table>` : ""}
 
-      ${sec("summary") ? `<h2 class="report-sec">${staffFocus ? "2" : "1"}. Executive Summary</h2>
-      <table class="tbl report-tbl"><tbody>
-        <tr><td>Total applicants</td><td class="text-right"><b>${apps.length}</b></td>
-        <td>Active projects</td><td class="text-right"><b>${apps.filter(a => a.status === "Active").length}</b></td>
-        <td>Under evaluation</td><td class="text-right"><b>${apps.filter(a => a.stage === "Under Evaluation" || a.stage === "Pitch Deck").length}</b></td></tr>
-        <tr><td>Decisions recorded</td><td class="text-right"><b>${decisions}</b></td>
-        <td>Meetings</td><td class="text-right"><b>${meetings.length}</b></td>
-        <td>Staff members</td><td class="text-right"><b>${staffList.length}</b></td></tr>
-      </tbody></table>` : ""}
-
-      ${sec("stage") ? `<h2 class="report-sec">${staffFocus ? "3" : "2"}. Applications by Stage &amp; Sector</h2>
+      ${sec("stage") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "5" : "4"}</span> Programme Data — Stage &amp; Sector Distribution</h2>
       <div class="grid-2col">
         <div class="ams-card"><h3>Applications by Stage</h3>${barChart(byStage)}</div>
         <div class="ams-card"><h3>Sector Distribution</h3>${donut(sectorSegs, apps.length, "Total")}</div>
       </div>` : ""}
 
-      ${sec("financial") ? `<h2 class="report-sec">${staffFocus ? "4" : "3"}. Financial Summary</h2>
+      ${sec("financial") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "6" : "5"}</span> Financial Overview</h2>
       <table class="tbl report-tbl"><tbody>
         <tr><td>Total approved support</td><td class="text-right"><b>${amsMoney(support)}</b></td>
         <td>Total spent</td><td class="text-right"><b>${amsMoney(spent)}</b></td>
         <td>Remaining</td><td class="text-right"><b class="money-green">${amsMoney(support - spent)}</b></td>
-        <td>Utilization</td><td class="text-right"><b>${support ? Math.round(spent / support * 100) : 0}%</b></td></tr>
+        <td>Utilization</td><td class="text-right"><b>${utilization}%</b></td></tr>
       </tbody></table>
-      <div class="sub2" style="margin-top:6px">Support requests: ${Object.entries(supportReq).map(([k, v]) => `${escA(k)} ×${v}`).join(" · ") || "—"}</div>` : ""}
+      <div class="sub2" style="margin-top:6px">Support requested: ${Object.entries(supportReq).map(([k, v]) => `${escA(k)} ×${v}`).join(" · ") || "—"}</div>` : ""}
 
-      ${sec("register") ? `<h2 class="report-sec">${staffFocus ? "5" : "4"}. Applicant Register (${apps.length})</h2>
+      ${sec("register") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "7" : "6"}</span> Appendix A — Applicant Register (${apps.length})</h2>
       <table class="tbl report-tbl"><thead><tr>${th}</tr></thead><tbody>
         ${apps.map(a => `<tr>
           <td><b>${escA(a.applicantName || "—")}</b></td><td>${escA(a.name)}</td><td>${escA(a.sector || "—")}</td>
@@ -2718,7 +2765,7 @@ function viewReports(el) {
           || '<tr><td colspan="9"><div class="empty-state">No applicants match the filters.</div></td></tr>'}
       </tbody></table>` : ""}
 
-      ${sec("procurement") ? `<h2 class="report-sec">${staffFocus ? "6" : "5"}. Procurement Summary</h2>
+      ${sec("procurement") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "8" : "7"}</span> Appendix B — Procurement (${prs.length})</h2>
       <table class="tbl report-tbl"><tbody>
         <tr><td>Pending PRs</td><td class="text-right"><b>${prsPending.length}</b></td>
         <td>Pending value</td><td class="text-right"><b>${amsMoney(pendingVal)}</b></td>
@@ -2731,7 +2778,7 @@ function viewReports(el) {
           <td>${p.amount ? amsMoney(p.amount) : "—"}</td><td>${amsFmtDate(p.date)}</td><td>${escA(p.status)}</td></tr>`).join("")}
       </tbody></table>` : '<div class="empty-state">No purchase requests.</div>'}` : ""}
 
-      ${sec("meetings") ? `<h2 class="report-sec">${staffFocus ? "7" : "6"}. Meetings Summary (${meetings.length})</h2>
+      ${sec("meetings") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "9" : "8"}</span> Appendix C — Meetings (${meetings.length})</h2>
       <table class="tbl report-tbl"><thead><tr>
         <th style="text-align:left">Applicant / Project</th><th style="text-align:left">Meeting</th><th>Date</th><th>Time</th><th style="text-align:left">Location</th><th>Status</th></tr></thead><tbody>
         ${meetings.map(m => `<tr><td>${escA(m.appName)}</td><td>${escA(m.title)}</td><td>${amsFmtDate(m.date)}</td>
@@ -2739,11 +2786,11 @@ function viewReports(el) {
           || '<tr><td colspan="6"><div class="empty-state">No meetings.</div></td></tr>'}
       </tbody></table>` : ""}
 
-      ${sec("tasks") ? `<h2 class="report-sec">${staffFocus ? "8" : "7"}. Tasks Summary</h2>
+      ${sec("tasks") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "10" : "9"}</span> Appendix D — Tasks (${tasks.length})</h2>
       <table class="tbl report-tbl"><tbody>
-        <tr><td>Open</td><td class="text-right"><b>${tasks.filter(t => t.status !== "Completed").length}</b></td>
-        <td>Overdue</td><td class="text-right"><b>${tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length}</b></td>
-        <td>Completed</td><td class="text-right"><b>${tasks.filter(t => t.status === "Completed").length}</b></td></tr>
+        <tr><td>Open</td><td class="text-right"><b>${openT}</b></td>
+        <td>Overdue</td><td class="text-right"><b>${overdueT}</b></td>
+        <td>Completed</td><td class="text-right"><b>${doneT}</b></td></tr>
       </tbody></table>
       <table class="tbl report-tbl" style="margin-top:10px"><thead><tr>
         <th style="text-align:left">Task</th><th style="text-align:left">Description</th><th>Applicant</th><th>Assigned To</th><th>Due</th><th>Status</th><th>Priority</th></tr></thead><tbody>
@@ -2751,14 +2798,9 @@ function viewReports(el) {
           <td>${escA(t.desc || "")}</td><td>${t.appId ? `<a href="?v=applicant&id=${encodeURIComponent(t.appId)}&tab=tasks">${escA(t.appName)}</a>` : escA(t.appName)}</td>
           <td>${escA(t.assignedTo)}</td><td>${amsFmtDate(t.due)}</td><td>${escA(t.status)}</td><td>${escA(t.priority || "—")}</td></tr>`).join("")
           || '<tr><td colspan="7"><div class="empty-state">No tasks.</div></td></tr>'}
-      </tbody></table>
-      <div class="ams-card" style="margin-top:10px"><h3>Tasks by Team Member</h3>
-        <table class="tbl"><thead><tr><th>Member</th><th>Open</th><th>Overdue</th><th>Completed</th></tr></thead><tbody>
-        ${Object.entries(byAssignee).map(([n, c]) => `<tr><td><b>${escA(n)}</b></td><td>${c.open}</td><td>${c.overdue ? `<span style="color:#dc2626">${c.overdue}</span>` : 0}</td><td>${c.done}</td></tr>`).join("")
-          || '<tr><td colspan="4"><div class="empty-state">No tasks.</div></td></tr>'}
-        </tbody></table></div>` : ""}
+      </tbody></table>` : ""}
 
-      ${sec("evaluations") ? `<h2 class="report-sec">${staffFocus ? "9" : "8"}. Evaluations Summary (${evals.length})</h2>
+      ${sec("evaluations") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "11" : "10"}</span> Appendix E — Evaluations (${evals.length})</h2>
       <table class="tbl report-tbl"><thead><tr>
         <th style="text-align:left">Applicant / Project</th><th style="text-align:left">Expert</th><th>Date</th><th>Score</th><th>Status</th><th style="text-align:left">Recommendation</th></tr></thead><tbody>
         ${evals.map(e => `<tr><td>${escA(e.appName)}</td><td>${escA(e.expert)}</td><td>${amsFmtDate(e.date)}</td>
@@ -2766,19 +2808,30 @@ function viewReports(el) {
           || '<tr><td colspan="6"><div class="empty-state">No evaluations yet.</div></td></tr>'}
       </tbody></table>` : ""}
 
-      ${sec("portfolio") ? `<h2 class="report-sec">${staffFocus ? "10" : "9"}. Portfolio Health (KPI)</h2>
+      ${sec("portfolio") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "12" : "11"}</span> Portfolio Health (KPI)</h2>
       ${portfolioBlock(apps)}` : ""}
 
-      ${sec("staff") ? `<h2 class="report-sec">${staffFocus ? "11" : "10"}. Staff &amp; Access</h2>
+      ${sec("staff") ? `<h2 class="report-sec"><span class="sec-no">${staffFocus ? "13" : "12"}</span> Appendix F — Staff &amp; Access</h2>
       <table class="tbl report-tbl"><thead><tr><th style="text-align:left">Name</th><th style="text-align:left">Email</th><th>Job Title</th><th>Role</th><th>Status</th></tr></thead><tbody>
         ${staffList.map(s => `<tr><td><b>${escA(s.name)}</b></td><td>${escA(s.email)}</td><td>${escA(s.title || "—")}</td>
           <td>${escA(roles[s.role]?.label || s.role)}</td><td>${s.active ? "Active" : "Restricted"}</td></tr>`).join("")}
       </tbody></table>` : ""}
 
-      <div class="report-foot">Kurdistan Innovation Institute · Confidential — for internal management use only · Generated by ${escA(staff.name)} on ${amsFmtDate(new Date().toISOString())}</div>
+      <!-- signature block -->
+      <div class="sig-block">
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">${escA(staff.name)}</div>
+          <div class="sig-role">${escA(staff.title || roles[staff.role]?.label || staff.role)} — Prepared by</div>
+          <div class="sig-date">Date: ______________</div></div>
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">&nbsp;</div>
+          <div class="sig-role">Reviewed by</div><div class="sig-date">Date: ______________</div></div>
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">&nbsp;</div>
+          <div class="sig-role">Approved by — ${escA(amsGetSettings().callName)}</div><div class="sig-date">Date: ______________</div></div>
+      </div>
+
+      <div class="report-foot">Kurdistan Innovation Institute · Confidential — for internal management use only<br>
+        Generated ${amsFmtDate(today)} by ${escA(staff.name)} · Report No. KII-RPT-${today.replace(/-/g, "")}</div>
     </div>`;
 
-  /* entity dropdown updates when report type changes */
   const rt = $ams("#rType", el);
   if (rt) rt.addEventListener("change", () => { P.set("r", rt.value); P.delete("id"); nav("?" + P.toString()); });
 
