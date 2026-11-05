@@ -344,6 +344,10 @@ if (user) {
     renderTracker();
   });
 
+  document.querySelector('#chatForm input[type=file]')?.addEventListener("change", (e) => {
+    const p = document.getElementById("chatPicked");
+    if (p) p.innerHTML = [...e.target.files].map(f => `<span class="chat-file">📎 ${escHtml(f.name)}</span>`).join("");
+  });
   document.getElementById("chatForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const rec = getRec();
@@ -362,6 +366,8 @@ if (user) {
     const fullName = user.firstName + " " + user.secondName + " " + user.thirdName;
     amsPostChat(rec.id, { from: "applicant", name: fullName, text, files });
     if (e.target.files) e.target.files.value = "";
+    const pEl = document.getElementById("chatPicked");
+    if (pEl) pEl.innerHTML = "";
     const s = rec.assignedToName && amsGetStaff().find(x => x.name === rec.assignedToName);
     if (s) amsNotify(s.id, `New chat message from ${fullName} (${rec.name})`, `admin.html?v=applicant&id=${encodeURIComponent(rec.id)}&tab=chat`);
     e.target.text.value = "";

@@ -648,3 +648,4 @@ tr.kpi-sub td { font-size: .82rem; }
 .chat-msg.mine .chat-bub { background: #dcf2e6; }
 .chat-file { display: inline-block; margin-top: 4px; font-size: 12.5px; color: #166e4a; background: #eef7f1; border-radius: 8px; padding: 4px 10px; text-decoration: none; }
 .chat-msg.mine .chat-file { background: #cdeeda; }
+.chat-picked { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }

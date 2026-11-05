@@ -2015,22 +2015,48 @@ function tabChat(a, body) {
     <div class="ams-card"><h3>Chat with Applicant ${a.applicantName ? `(${escA(a.applicantName)})` : ""}</h3>
       <div class="chat-box" id="chatBox">
         ${msgs.map(m => `<div class="chat-msg ${m.from === "staff" ? "mine" : "theirs"}">
-          <div class="cm">${escA(m.text)}</div>
+          ${m.text ? `<div class="cm">${escA(m.text)}</div>` : ""}
+          ${(m.files || []).map(f => f.fileId ? `<a href="#" class="chat-file" data-fid="${escA(f.fileId)}">📄 ${escA(f.name)}</a>` : "").join("")}
           <div class="cm-meta">${escA(m.name)} · ${amsFmtDateTime(m.date)}</div>
         </div>`).join("") || '<div class="empty-state">No messages yet — start the conversation.</div>'}
       </div>
-      <form id="chatForm" class="${readOnly ? "hidden" : ""}" style="display:flex;gap:9px;margin-top:12px">
-        <input name="text" placeholder="Write a message to the applicant…" required
-          style="flex:1;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
+      <form id="chatForm" class="${readOnly ? "hidden" : ""}" style="display:flex;gap:9px;margin-top:12px;align-items:center;flex-wrap:wrap">
+        <input name="text" placeholder="Write a message to the applicant…"
+          style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
+        <label class="abtn ghost sm" style="cursor:pointer" title="Attach file / image / video">📎<input type="file" name="files" multiple class="hidden"></label>
         <button class="abtn">Send</button>
+        <div id="chatPicked" class="chat-picked"></div>
       </form>
       <div class="sub2" style="margin-top:8px">Messages appear instantly in the applicant's dashboard.</div>
     </div>`;
   const box = $ams("#chatBox", body);
   box.scrollTop = box.scrollHeight;
-  $ams("#chatForm", body).addEventListener("submit", (e) => {
+  box.onclick = async (e) => {
+    const fl = e.target.closest(".chat-file");
+    if (!fl) return;
     e.preventDefault();
-    amsPostChat(a.id, { from: "staff", name: staff.name + " (KII)", text: e.target.text.value.trim() });
+    const f = await KII.getFile(fl.dataset.fid);
+    if (f) window.open(URL.createObjectURL(f), "_blank");
+  };
+  const pickedEl2 = $ams("#chatPicked", body);
+  $ams('#chatForm input[type=file]', body)?.addEventListener("change", (e) => {
+    if (pickedEl2) pickedEl2.innerHTML = [...e.target.files].map(f => `<span class="chat-file">📎 ${escA(f.name)}</span>`).join("");
+  });
+  $ams("#chatForm", body).addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector("button.abtn");
+    const files = [];
+    const picked = [...(e.target.files?.files || [])];
+    if (picked.length) { btn.disabled = true; btn.textContent = "Uploading…"; }
+    for (const fl of picked) {
+      const fid = amsUid("f");
+      if (await KII.saveFile(fid, fl)) files.push({ fileId: fid, name: fl.name, size: fl.size, type: fl.type });
+      else alert(`Could not upload "${fl.name}" — please try again.`);
+    }
+    btn.disabled = false; btn.textContent = "Send";
+    if (!e.target.text.value.trim() && !files.length) return;
+    if (pickedEl2) pickedEl2.innerHTML = "";
+    amsPostChat(a.id, { from: "staff", name: staff.name + " (KII)", text: e.target.text.value.trim(), files });
     saveAndReload(a);
   });
 }
@@ -2318,11 +2344,12 @@ function viewChat(el) {
               ? `<a href="#" class="view-upload chat-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📄 ${escA(f.name)}</a>`
               : `<span class="chat-file">📄 ${escA(f.name)}</span>`).join("")}</div>`;
         }).join("") || '<div class="empty-state">No messages yet — say hello.</div>'}</div>
-        <form id="schatForm" style="display:flex;gap:9px;margin-top:12px;align-items:center">
+        <form id="schatForm" style="display:flex;gap:9px;margin-top:12px;align-items:center;flex-wrap:wrap">
           <input name="text" placeholder="Message ${escA(cur.name)}…" autocomplete="off"
-            style="flex:1;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
+            style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
           <label class="abtn ghost sm" style="cursor:pointer" title="Attach file / image / video">📎<input type="file" name="files" multiple class="hidden"></label>
-          <button class="abtn">Send</button></form>`
+          <button class="abtn">Send</button>
+          <div id="chatPicked" class="chat-picked"></div></form>`
         : '<div class="empty-state" style="padding:40px">Select a person, project group or applicant on the left to start chatting.</div>'}
       </div>
     </div>`;
@@ -2335,6 +2362,9 @@ function viewChat(el) {
     const f = await KII.getFile(a.dataset.fid);
     if (f) window.open(URL.createObjectURL(f), "_blank");
   });
+  const pickedEl = $ams("#chatPicked", el);
+  const showPicked = (inp) => { if (pickedEl) pickedEl.innerHTML = [...inp.files].map(f => `<span class="chat-file">📎 ${escA(f.name)}</span>`).join(""); };
+  $ams('#schatForm input[type=file]', el)?.addEventListener("change", (e) => showPicked(e.target));
   $ams("#schatForm", el)?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector("button.abtn");
@@ -2349,6 +2379,7 @@ function viewChat(el) {
     }
     btn.disabled = false; btn.textContent = "Send";
     if (!text && !files.length) return;
+    if (pickedEl) pickedEl.innerHTML = "";
     if (cur.external) {
       amsPostChat(cur.appId, { from: "staff", name: staff.name + " (KII)", text, files });
     } else {
