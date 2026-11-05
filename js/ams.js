@@ -9,6 +9,7 @@ const AMS = {
   NOTIF_KEY: "kii_ams_notifs",
   MSG_KEY: "kii_ams_messages",
   SET_KEY: "kii_ams_settings",
+  ITASK_KEY: "kii_ams_itasks",
 };
 
 /* ---------- roles & permissions ---------- */
@@ -464,6 +465,18 @@ function amsGetSettings() {
   catch { return { ...AMS_DEFAULT_SETTINGS }; }
 }
 function amsSaveSettings(s) { localStorage.setItem(AMS.SET_KEY, JSON.stringify(s)); }
+
+/* ---------- internal team tasks (not tied to an applicant) ---------- */
+function amsGetInternalTasks() {
+  try { return JSON.parse(localStorage.getItem(AMS.ITASK_KEY)) || []; } catch { return []; }
+}
+function amsSaveInternalTasks(l) { localStorage.setItem(AMS.ITASK_KEY, JSON.stringify(l)); }
+function amsUpdateInternalTask(id, patch) {
+  const l = amsGetInternalTasks();
+  const i = l.findIndex(t => t.id === id);
+  if (i >= 0) { l[i] = { ...l[i], ...patch }; amsSaveInternalTasks(l); }
+  return l[i] || null;
+}
 
 /* ---------- workflow helpers ---------- */
 function amsNextStage(stage) {

@@ -250,7 +250,9 @@ function pbarRow(label, pct, color) {
     <div class="pbar"><i style="width:${pct}%;background:${color}"></i></div></div>`;
 }
 function allTasks() {
-  return amsGetApplicants().flatMap(a => (a.tasks || []).map(t => ({ ...t, appId: a.id, appName: a.name })));
+  return amsGetApplicants().flatMap(a => (a.tasks || []).map(t => ({ ...t, appId: a.id, appName: a.name })))
+    .concat((typeof amsGetInternalTasks === "function" ? amsGetInternalTasks() : [])
+      .map(t => ({ ...t, internal: true, appId: t.appId || "", appName: t.appName || "— Internal —" })));
 }
 function daysUntil(iso) { return Math.ceil((new Date(iso) - Date.now()) / 86400000); }
 
@@ -346,7 +348,7 @@ function viewDashboard(el) {
     .sort((x, y) => new Date(y.date) - new Date(x.date)).slice(0, 6);
 
   const selectedIds = new Set(everything.map(a => a.id));
-  const scopedTasks = allTasks().filter(t => selectedIds.has(t.appId));
+  const scopedTasks = allTasks().filter(t => selectedIds.has(t.appId) || t.internal);
   const openTasks = scopedTasks.filter(t => t.status !== "Completed")
     .sort((x, y) => new Date(x.due) - new Date(y.due));
   const overdueTasks = openTasks.filter(t => daysUntil(t.due) < 0);
@@ -2077,8 +2079,32 @@ function viewTasks(el) {
   el.innerHTML = `
     <div class="page-head-row">
       <div><div class="page-title">Tasks / Follow-up</div>
-      <div class="page-sub">All tasks across applicants</div></div>
-      <a class="abtn blue sm" href="?v=applicants">${IC.plus} Add Task (choose applicant)</a>
+      <div class="page-sub">All tasks across applicants and internal team tasks</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="abtn sm" id="addInternal">${IC.plus} New Internal Task</button>
+        <a class="abtn blue sm" href="?v=applicants">${IC.plus} Add Task (choose applicant)</a>
+      </div>
+    </div>
+
+    <div class="ams-card hidden" id="internalFormCard"><h3>New Internal Task</h3>
+      <form id="internalTaskForm" class="inline-form">
+        <div class="grid-2">
+          <div><label>Task *</label><input name="task" required></div>
+          <div><label>Description</label><input name="desc"></div>
+          <div><label>Assign To</label><select name="assignedTo">
+            ${staffNames().map(n => `<option ${n === staff.name ? "selected" : ""}>${escA(n)}</option>`).join("")}</select></div>
+          <div><label>Deadline</label><input type="date" name="due" required></div>
+          <div><label>Priority</label><select name="priority"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
+          <div><label>Related applicant (optional)</label><select name="appId"><option value="">— Internal (no applicant) —</option>
+            ${amsGetApplicants().map(a => `<option value="${escA(a.id)}">${escA(a.name)}</option>`).join("")}</select></div>
+          <div><label>Reference links (one per line)</label><textarea name="links" rows="2" placeholder="https://…"></textarea></div>
+          <div><label>Attachments (files, images…)</label><input type="file" name="files" multiple></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="abtn sm" type="submit">Create Task</button>
+          <button class="abtn ghost sm" type="button" id="cancelInternal">Cancel</button>
+        </div>
+      </form>
     </div>
 
     ${(() => { const at = allTasks().filter(t => t.assignedTo === "Applicant");
@@ -2116,13 +2142,30 @@ function viewTasks(el) {
       </tr></thead><tbody>
       ${list.map(t => `<tr>
         <td><input type="checkbox" class="chk"></td>
-        <td><b>${escA(t.task)}</b></td><td class="sub2">${escA(t.desc || "")}</td>
-        <td><a href="?v=applicant&id=${encodeURIComponent(t.appId)}&tab=tasks">${escA(t.appName)}</a></td>
+        <td><b>${escA(t.task)}</b>${t.internal ? ' <span class="chip" style="background:#e0f2fe;color:#075985">Internal</span>' : ""}
+          ${(t.links || []).length || (t.attachments || []).length || (t.updates || []).length ? `<div class="sub2">${(t.links || []).length ? `${t.links.length} link(s) · ` : ""}${(t.attachments || []).length ? `${t.attachments.length} file(s)` : ""}${(t.updates || []).length ? ` · ${t.updates.length} update(s)` : ""}</div>` : ""}</td>
+        <td class="sub2">${escA(t.desc || "")}</td>
+        <td>${t.appId ? `<a href="?v=applicant&id=${encodeURIComponent(t.appId)}&tab=tasks">${escA(t.appName)}</a>` : escA(t.appName)}</td>
         <td>${t.assignedTo === "Applicant" ? '<span class="chip" style="background:#ede9fe;color:#5b21b6">Applicant</span>' : escA(t.assignedTo)}</td>
         <td>${daysUntil(t.due) < 0 && t.status !== "Completed" ? `<span style="color:#dc2626">${amsFmtDate(t.due)}</span>` : amsFmtDate(t.due)}</td>
         <td>${chipStatus(t.status)}</td><td>${chipPriority(t.priority)}</td>
-        <td class="act-dots">${IC.dots}</td>
-      </tr>`).join("") || '<tr><td colspan="9"><div class="empty-state">No tasks.</div></td></tr>'}
+        <td>${t.internal ? `<button class="abtn ghost sm" data-itoggle="${escA(t.id)}">Details</button>` : `<span class="act-dots">${IC.dots}</span>`}</td>
+      </tr>
+      ${t.internal ? `<tr class="hidden" data-idetail="${escA(t.id)}"><td colspan="9"><div class="itask-detail">
+        ${t.desc ? `<div class="sub2"><b>Description:</b> ${escA(t.desc)}</div>` : ""}
+        <div class="sub2"><b>Assigned by:</b> ${escA(t.by || "—")} · <b>Created:</b> ${amsFmtDate(t.created)}${t.doneAt ? ` · <b>Completed:</b> ${amsFmtDate(t.doneAt)}` : ""}</div>
+        ${(t.links || []).length ? `<div class="sub2"><b>Links:</b> ${t.links.map(l => `<a href="${escA(l)}" target="_blank" rel="noopener">${escA(l)}</a>`).join(" · ")}</div>` : ""}
+        ${(t.attachments || []).length ? `<div class="sub2"><b>Attachments:</b> ${t.attachments.map(f => f.fileId
+          ? `<a href="#" class="view-upload" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">${escA(f.name)}</a>` : escA(f.name)).join(" · ")}</div>` : ""}
+        ${(t.updates || []).map(u => `<div class="sub2 tr-view"><b>${escA(u.by)}</b> · ${amsFmtDate(u.date)}${u.note ? ` — ${escA(u.note)}` : ""}
+          ${(u.files || []).map(f => f.fileId ? `<a href="#" class="view-upload" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">${escA(f.name)}</a>` : escA(f.name)).join(" · ")}</div>`).join("")}
+        ${(t.assignedTo === staff.name || t.byId === staff.id || can("manage_tasks")) ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <select data-istatus="${escA(t.id)}">${["Open", "In Progress", "Completed"].map(s => `<option ${s === t.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+          <input type="text" placeholder="Note / update…" data-inote="${escA(t.id)}" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid #d6dee6;border-radius:8px">
+          <input type="file" multiple data-ifile="${escA(t.id)}" style="font-size:.8rem">
+          <button class="abtn sm" data-iupdate="${escA(t.id)}">Post update</button>
+        </div>` : ""}
+      </div></td></tr>` : ""}`).join("") || '<tr><td colspan="9"><div class="empty-state">No tasks.</div></td></tr>'}
       </tbody></table>
     </div>`;
   $$ams(".filter-chips button[data-f]", el).forEach(b =>
@@ -2132,6 +2175,62 @@ function viewTasks(el) {
     }));
   const ca = $ams("#chkAll", el);
   if (ca) ca.addEventListener("change", () => $$ams(".chk", el).forEach(c => c.checked = ca.checked));
+
+  /* internal task creation + updates */
+  const iCard = $ams("#internalFormCard", el);
+  $ams("#addInternal", el)?.addEventListener("click", () => iCard.classList.toggle("hidden"));
+  $ams("#cancelInternal", el)?.addEventListener("click", () => iCard.classList.add("hidden"));
+  const saveFiles = async (input) => {
+    const out = [];
+    for (const f of (input?.files || [])) {
+      const fid = amsUid("f");
+      if (await LS.saveFile(fid, f)) out.push({ fileId: fid, name: f.name, size: f.size });
+    }
+    return out;
+  };
+  $ams("#internalTaskForm", el)?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const app = amsGetApplicants().find(a => a.id === f.appId.value);
+    const list = amsGetInternalTasks();
+    list.unshift({
+      id: amsUid("it"), task: f.task.value.trim(), desc: f.desc.value.trim(),
+      assignedTo: f.assignedTo.value, by: staff.name, byId: staff.id,
+      due: f.due.value, status: "Open", priority: f.priority.value,
+      appId: f.appId.value || "", appName: app ? app.name : "— Internal —",
+      links: f.links.value.split("\n").map(s => s.trim()).filter(Boolean),
+      attachments: await saveFiles(f.files), updates: [], created: new Date().toISOString(),
+    });
+    amsSaveInternalTasks(list);
+    const s = amsGetStaff().find(x => x.name === f.assignedTo.value);
+    if (s && s.id !== staff.id)
+      amsNotify(s.id, `New internal task from ${staff.name}: "${f.task.value.trim()}" (due ${amsFmtDate(f.due.value)})`, "admin.html?v=tasks");
+    nav("?v=tasks");
+  });
+  $$ams("[data-itoggle]", el).forEach(b => b.addEventListener("click", () =>
+    $ams(`[data-idetail="${b.dataset.itoggle}"]`, el).classList.toggle("hidden")));
+  $$ams("[data-istatus]", el).forEach(sel => sel.addEventListener("change", () => {
+    amsUpdateInternalTask(sel.dataset.istatus, {
+      status: sel.value, doneAt: sel.value === "Completed" ? new Date().toISOString() : "",
+    });
+    if (sel.value === "Completed") {
+      const t = amsGetInternalTasks().find(x => x.id === sel.dataset.istatus);
+      if (t && t.byId !== staff.id) amsNotify(t.byId, `Task completed: "${t.task}" by ${staff.name}`, "admin.html?v=tasks");
+    }
+    nav("?v=tasks");
+  }));
+  $$ams("[data-iupdate]", el).forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.iupdate;
+    const note = $ams(`[data-inote="${id}"]`, el)?.value.trim() || "";
+    const files = await saveFiles($ams(`[data-ifile="${id}"]`, el));
+    if (!note && !files.length) return;
+    const t = amsGetInternalTasks().find(x => x.id === id);
+    amsUpdateInternalTask(id, {
+      updates: [...(t.updates || []), { by: staff.name, date: new Date().toISOString(), note, files }],
+    });
+    if (t.byId !== staff.id) amsNotify(t.byId, `Update on task "${t.task}" by ${staff.name}`, "admin.html?v=tasks");
+    nav("?v=tasks");
+  }));
 }
 
 /* ============ VIEW: EVALUATIONS (all) ============ */
