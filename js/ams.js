@@ -11,6 +11,7 @@ const AMS = {
   SET_KEY: "kii_ams_settings",
   ITASK_KEY: "kii_ams_itasks",
   STCHAT_KEY: "kii_ams_stchat",
+  GROUPS_KEY: "kii_ams_groups",
 };
 
 /* ---------- roles & permissions ---------- */
@@ -489,6 +490,12 @@ function amsPostStaffChat(room, msg) {
   (all[room] = all[room] || []).push({ id: amsUid("m"), date: new Date().toISOString(), ...msg });
   localStorage.setItem(AMS.STCHAT_KEY, JSON.stringify(all));
 }
+
+/* staff-created group chats: staff members + optionally ONE applicant (applicants never see each other) */
+function amsGetGroups() {
+  try { return JSON.parse(localStorage.getItem(AMS.GROUPS_KEY)) || []; } catch { return []; }
+}
+function amsSaveGroups(l) { localStorage.setItem(AMS.GROUPS_KEY, JSON.stringify(l)); }
 
 /* ---------- workflow helpers ---------- */
 function amsNextStage(stage) {

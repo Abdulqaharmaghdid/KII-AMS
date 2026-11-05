@@ -2260,13 +2260,13 @@ function viewTasks(el) {
 
 /* ============ VIEW: TEAM CHAT ============ */
 function viewChat(el) {
-  const room = P.get("room") || "grp:general";
+  const room = P.get("room") || "";
   const people = amsGetStaff().filter(s => s.id !== staff.id);
   const apps = amsGetApplicants();
+  const myGroups = amsGetGroups().filter(g => g.members.includes(staff.id) || g.by === staff.id);
   const teamRooms = [
-    { room: "grp:general", name: "All Staff (General)", kind: "Group" },
     ...people.map(s => ({ room: "dm:" + [staff.id, s.id].sort().join(":"), name: s.name, kind: s.title || s.roleLabel || "Staff", direct: s.id })),
-    ...apps.map(a => ({ room: "grp:" + a.id, name: a.name, kind: "Project group" })),
+    ...myGroups.map(g => ({ room: "cg:" + g.id, name: g.name, kind: `Group · ${g.members.length} staff${g.appId ? " + applicant" : ""}`, grp: g })),
   ];
   const applicantRooms = apps.map(a => ({ room: "app:" + a.id, name: a.applicantName || a.name, kind: a.name, appId: a.id, external: true }));
   const rooms = [...teamRooms, ...applicantRooms];
@@ -2275,7 +2275,25 @@ function viewChat(el) {
 
   el.innerHTML = `
     <div class="page-head-row"><div><div class="page-title">Team Chat</div>
-      <div class="page-sub">Internal — chat with the team or a project group · External — message an applicant directly</div></div></div>
+      <div class="page-sub">Internal — chat with a team member or a group you created · External — one-to-one with an applicant</div></div>
+      <button class="abtn sm" id="newGroupBtn">${IC.plus} New Group</button></div>
+    <div class="ams-card hidden" id="groupFormCard"><h3>Create Group Chat</h3>
+      <form id="groupForm" class="inline-form">
+        <div class="grid-2">
+          <div><label>Group name *</label><input name="gname" required placeholder="e.g. Jamana Fashion team"></div>
+          <div><label>Include applicant (optional — max 1)</label><select name="gapp"><option value="">— None —</option>
+            ${apps.map(a => `<option value="${escA(a.id)}">${escA(a.applicantName || a.name)}</option>`).join("")}</select></div>
+        </div>
+        <div class="sub2" style="margin:8px 0 4px">Staff members:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">${people.map(s =>
+          `<label style="display:flex;gap:6px;align-items:center;font-size:.85rem"><input type="checkbox" name="gm" value="${escA(s.id)}"> ${escA(s.name)}</label>`).join("")}</div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="abtn sm" type="submit">Create Group</button>
+          <button class="abtn ghost sm" type="button" id="cancelGroup">Cancel</button>
+        </div>
+      </form>
+      <div class="sub2" style="margin-top:8px">You are always included. If an applicant is added, they only see this group's messages — never other applicants.</div>
+    </div>
     <div class="chat-layout">
       <div class="chat-rooms">
         <div class="chat-rooms-h">Internal — Team</div>
@@ -2314,8 +2332,26 @@ function viewChat(el) {
     } else {
       amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text });
       if (cur.direct) amsNotify(cur.direct, `Message from ${staff.name}: "${text.slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`);
+      if (cur.grp) {
+        cur.grp.members.filter(id => id !== staff.id).forEach(id =>
+          amsNotify(id, `${cur.grp.name}: ${staff.name} — "${text.slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`));
+        if (cur.grp.appId) amsPostChat(cur.grp.appId, { from: "staff", name: staff.name + ` (KII · ${cur.grp.name})`, text });
+      }
     }
     nav(`?v=chat&room=${encodeURIComponent(cur.room)}`);
+  });
+  const gCard = $ams("#groupFormCard", el);
+  $ams("#newGroupBtn", el)?.addEventListener("click", () => gCard.classList.toggle("hidden"));
+  $ams("#cancelGroup", el)?.addEventListener("click", () => gCard.classList.add("hidden"));
+  $ams("#groupForm", el)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const members = [staff.id, ...[...f.querySelectorAll('input[name="gm"]:checked')].map(c => c.value)];
+    const g = { id: amsUid("g"), name: f.gname.value.trim(), members, appId: f.gapp.value || "", by: staff.id, created: new Date().toISOString() };
+    amsSaveGroups([g, ...amsGetGroups()]);
+    members.filter(id => id !== staff.id).forEach(id =>
+      amsNotify(id, `${staff.name} added you to group "${g.name}"`, `admin.html?v=chat&room=${encodeURIComponent("cg:" + g.id)}`));
+    nav(`?v=chat&room=${encodeURIComponent("cg:" + g.id)}`);
   });
 }
 
