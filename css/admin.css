@@ -709,3 +709,10 @@ tr.kpi-sub td { font-size: .82rem; }
 .sig-name { font-weight: 700; font-size: 13px; color: #0f2d24; margin-top: 6px; }
 .sig-role { font-size: 11.5px; color: #6b7684; }
 .sig-date { font-size: 11px; color: #8a94a3; margin-top: 4px; }
+/* entity dossier */
+.dossier-photo { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 2px solid #dde7e0; }
+.avatar-lg { width: 72px; height: 72px; border-radius: 50%; background: #166e4a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; flex: none; }
+.kv-tbl td { padding: 7px 12px; font-size: 12.5px; }
+.kv-k { width: 210px; color: #6b7684; font-weight: 600; white-space: nowrap; }
+.app-sec-h { font-size: 12px; font-weight: 800; color: #0f2d24; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .5px; border-left: 3px solid #166e4a; padding-left: 8px; }
+.perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }

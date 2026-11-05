@@ -615,6 +615,7 @@ function viewApplicant(el) {
         </div>
       </div>
       <div style="margin-left:auto;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        ${can("view_reports") ? `<a class="abtn ghost sm" href="?v=reportdoc&type=applicant&id=${encodeURIComponent(a.id)}" target="_blank">${IC.report} Full Report</a>` : ""}
         ${can("edit_applicants") && next && !isDraft(a) && !a.portalData?.withdrawn && a.outcome !== "Rejected"
           ? `<button class="abtn sm" id="advanceBtn">Advance to “${escA(next)}”</button>` : ""}
         ${isDraft(a) ? '<span class="sub2">Draft — the applicant has not submitted yet</span>' : ""}
@@ -2875,6 +2876,219 @@ function viewReports(el) {
       ...prs.map(p => [p.number || p.id || "", p.appName, p.title || p.desc || "", p.amount || 0, amsFmtDate(p.date), p.status])]));
 }
 
+/* ============ VIEW: ENTITY RECORD REPORT (applicant / staff dossier) ============ */
+function viewReportDoc(el) {
+  const type = P.get("type") || "applicant";
+  const id = P.get("id") || "";
+  const today = new Date().toISOString().slice(0, 10);
+  const roles = amsGetRoles();
+  const docNo = `KII-RPT-${today.replace(/-/g, "")}-${amsUid("n").slice(-4).toUpperCase()}`;
+
+  const back = `<div class="no-print" style="margin-bottom:12px"><a class="abtn ghost sm" href="javascript:history.back()">← Back</a>
+    <button class="abtn sm" onclick="window.print()" style="margin-left:8px">${IC.report} Print / Save as PDF</button></div>`;
+
+  /* ---------- helpers ---------- */
+  const tbl = (heads, rows) => rows.length ? `<table class="tbl report-tbl"><thead><tr>${heads.map(h => `<th style="text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : '<div class="empty-state">No records.</div>';
+  const sec = (n, title, inner) => `<h2 class="report-sec"><span class="sec-no">${n}</span> ${title}</h2>${inner}`;
+  const kv = (pairs) => `<table class="tbl report-tbl kv-tbl"><tbody>${pairs.map(([k, v]) => `<tr><td class="kv-k">${k}</td><td>${v || "—"}</td></tr>`).join("")}</tbody></table>`;
+  const escV = v => escA(typeof v === "object" ? JSON.stringify(v) : String(v ?? ""));
+
+  const head = (title, subtitle) => `
+    <div class="report-sheet">
+      <div class="letterhead">
+        <img src="asset/kii_logocl.png" alt="KII" class="report-logo">
+        <div class="letterhead-mid">
+          <div class="lh-name">Kurdistan Innovation Institute</div>
+          <div class="lh-line">Application Management System · ${title}</div>
+          <div class="lh-line2">${escA(subtitle)}</div>
+        </div>
+        <table class="lh-meta"><tbody>
+          <tr><td>Report No.</td><td>${docNo}</td></tr>
+          <tr><td>Date</td><td>${amsFmtDate(today)}</td></tr>
+          <tr><td>Prepared by</td><td>${escA(staff.name)}</td></tr>
+          <tr><td>Classification</td><td><b>Confidential — Internal</b></td></tr>
+        </tbody></table>
+      </div>`;
+
+  const foot = `
+      <div class="sig-block">
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">${escA(staff.name)}</div>
+          <div class="sig-role">${escA(staff.title || roles[staff.role]?.label || staff.role)} — Prepared by</div>
+          <div class="sig-date">Date: ______________</div></div>
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">&nbsp;</div>
+          <div class="sig-role">Reviewed by</div><div class="sig-date">Date: ______________</div></div>
+        <div class="sig-col"><div class="sig-line"></div><div class="sig-name">&nbsp;</div>
+          <div class="sig-role">Approved by — KII</div><div class="sig-date">Date: ______________</div></div>
+      </div>
+      <div class="report-foot">Kurdistan Innovation Institute · Confidential — for internal management use only<br>
+        Generated ${amsFmtDate(today)} by ${escA(staff.name)} · ${docNo}</div>
+    </div>`;
+
+  /* ================= APPLICANT DOSSIER ================= */
+  if (type === "applicant") {
+    const a = amsGetApplicant(id);
+    if (!a) { el.innerHTML = back + '<div class="ams-card">Record not found.</div>'; return; }
+    const p = a.applicantInfo || a.personal || {};
+    const chat = amsGetChat(a.id);
+    const evalRows = (a.evaluations || []).map(e => `<tr><td>${escA(e.expert)}</td><td>${amsFmtDate(e.date)}</td>
+      <td>${evalTotal(e) ?? "—"}</td><td>${escA(e.status)}</td><td>${escA(e.recommendation || "—")}</td>
+      <td class="sub2">${escA([e.strengths, e.weaknesses, e.notes].filter(Boolean).join(" | ").slice(0, 300))}</td></tr>`);
+    const taskRows = (a.tasks || []).map(t => `<tr><td><b>${escA(t.task)}</b></td><td>${escA(t.assignedTo)}</td>
+      <td>${amsFmtDate(t.due)}</td><td>${escA(t.status)}</td><td>${escA(t.priority || "—")}</td>
+      <td class="sub2">${escA(t.desc || "")}${t.response ? " · applicant responded " + amsFmtDate(t.response.date) : ""}</td></tr>`);
+    const meetRows = (a.meetings || []).map(m => `<tr><td>${escA(m.title)}</td><td>${amsFmtDate(m.date)}</td>
+      <td>${escA(m.time || "—")}</td><td>${escA(m.location || "—")}</td><td>${escA(m.status)}</td></tr>`);
+    const prRows = (a.procurement || []).map(pr => `<tr><td>${escA(pr.number || pr.id || "—")}</td><td>${escA(pr.title || pr.desc || "—")}</td>
+      <td>${pr.amount ? amsMoney(pr.amount) : "—"}</td><td>${amsFmtDate(pr.date)}</td><td>${escA(pr.status)}</td></tr>`);
+    const actRows = (a.activities || []).slice(0, 60).map(x => `<tr><td>${amsFmtDateTime ? amsFmtDateTime(x.date) : amsFmtDate(x.date)}</td>
+      <td>${escA(x.title)}</td><td class="sub2">${escA(x.desc || "")}</td><td>${escA(x.by || "—")}</td></tr>`);
+    const decRows = (a.decisions || []).map(d => `<tr><td>${amsFmtDate(d.date)}</td><td>${escA(d.title || d.decision || d.type || "Decision")}</td>
+      <td class="sub2">${escA(d.note || d.reason || d.desc || "")}</td><td>${escA(d.by || "—")}</td></tr>`);
+    const uploadRows = (a.uploads || []).map(u => `<tr><td>${escA(u.name)}</td><td>${escA(u.field || u._key || "—")}</td>
+      <td class="sub2">${fmtBytes(u.size)}</td><td>${u.fileId ? `<a href="#" class="view-upload" data-fid="${escA(u.fileId)}" data-name="${escA(u.name)}">Open</a>` : "—"}</td></tr>`);
+
+    /* application answers — sectioned, using field labels where known */
+    const appSections = Object.entries(a.application || {}).map(([secKey, fields]) => {
+      if (!fields || typeof fields !== "object") return "";
+      const rows = Object.entries(fields).filter(([, v]) => v !== "" && v != null && !(Array.isArray(v) && !v.length))
+        .map(([fk, v]) => `<tr><td class="kv-k">${escA(FIELD_LABELS[fk] || fk.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()))}</td>
+          <td>${escA(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`);
+      if (!rows.length) return "";
+      return `<h3 class="app-sec-h">${escA(APP_SEC_LABELS[secKey] || secKey.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()))}</h3>
+        <table class="tbl report-tbl"><tbody>${rows.join("")}</tbody></table>`;
+    }).join("");
+
+    el.innerHTML = back + head("Applicant Dossier", `${a.name} — ${a.applicantName || ""}`) + `
+      ${sec(1, "Applicant Profile", `<div style="display:flex;gap:22px;align-items:flex-start">
+        ${p.photoFileId ? `<img class="dossier-photo" data-photo="${escA(p.photoFileId)}" alt="photo">` : ""}
+        ${kv([
+          ["Full name", escA(a.applicantName || p.fullName || p.name || "—")],
+          ["Email", escA(p.email || a.applicantEmail || a.portalData?.email || "—")],
+          ["Phone", escA(p.phone || "—")],
+          ["Date of birth", escA(p.dob || p.dateOfBirth || "—")],
+          ["Nationality", escA(p.nationality || p.country || "—")],
+          ["Location", escA(a.location || [p.city, p.country].filter(Boolean).join(", ") || "—")],
+          ["Applicant code", escA(a.code || a.applicantCode || "—")],
+        ])}</div>`)}
+
+      ${sec(2, "Application Overview", kv([
+        ["Project", escA(a.name)], ["Sector", escA(a.sector || "—")], ["Stage", escA(a.stage)],
+        ["Status", escA(a.status)], ["Outcome", escA(a.outcome || "—")],
+        ["Scope", a.inScope === false ? "Out of scope" : "In scope"],
+        ["Applied", amsFmtDate(a.appliedDate)], ["Last activity", amsFmtDate(a.lastActivity)],
+        ["Progress", (a.progress ?? 0) + "%"], ["Assigned to", escA(a.assignedToName || "Unassigned")],
+        ["Support approved", a.supportApproved ? amsMoney(a.supportApproved) : "—"],
+        ["Spent", a.spent ? amsMoney(a.spent) : "—"],
+      ]))}
+
+      ${sec(3, "Application Answers — Complete Record", `<div class="app-dossier">${appSections || '<div class="empty-state">No application data.</div>'}</div>`)}
+
+      ${sec(4, `Documents & Uploads (${(a.uploads || []).length})`, tbl(["File", "Field", "Size", ""], uploadRows))}
+      ${sec(5, `Tasks & Follow-up (${(a.tasks || []).length})`, tbl(["Task", "Assigned To", "Due", "Status", "Priority", "Notes"], taskRows))}
+      ${sec(6, `Meetings (${(a.meetings || []).length})`, tbl(["Meeting", "Date", "Time", "Location", "Status"], meetRows))}
+      ${sec(7, `Expert Evaluations (${(a.evaluations || []).length})`, tbl(["Expert", "Date", "Score", "Status", "Recommendation", "Comments"], evalRows))}
+      ${sec(8, "Financial Support & Procurement", kv([
+        ["Support requested", (a.supportRequested || []).join(", ") || "—"],
+        ["Approved", a.supportApproved ? amsMoney(a.supportApproved) : "—"],
+        ["Spent", a.spent ? amsMoney(a.spent) : "—"],
+      ]) + `<h3 class="app-sec-h">Purchase Requests (${(a.procurement || []).length})</h3>` +
+        tbl(["PR #", "Title", "Amount", "Date", "Status"], prRows))}
+      ${sec(9, `Decisions (${(a.decisions || []).length})`, tbl(["Date", "Decision", "Detail", "By"], decRows))}
+      ${sec(10, `Activity Log — last ${(a.activities || []).length > 60 ? 60 : (a.activities || []).length} entries`, tbl(["Date", "Action", "Detail", "By"], actRows))}
+      ${sec(11, `Communication — ${chat.length} message(s) exchanged with the team`, chat.length ? tbl(["From", "Date", "Message"], chat.slice(-40).map(m => `<tr><td>${escA(m.from === "staff" ? (m.name || "KII") : (m.name || "Applicant"))}</td><td>${amsFmtDateTime(m.date)}</td><td class="sub2">${escA(m.text || "(attachment)")}</td></tr>`)) : '<div class="empty-state">No messages.</div>')}
+      ${foot}`;
+
+    $$ams(".dossier-photo[data-photo]", el).forEach(img =>
+      KII.getFile(img.dataset.photo).then(f => { if (f) img.src = URL.createObjectURL(f); }).catch(() => { }));
+    bindUploadViewers(el);
+    return;
+  }
+
+  /* ================= STAFF DOSSIER ================= */
+  if (type === "staff") {
+    const s = amsGetStaff().find(x => x.id === id);
+    if (!s) { el.innerHTML = back + '<div class="ams-card">Staff record not found.</div>'; return; }
+    const myApps = amsGetApplicants().filter(a => a.assignedToName === s.name);
+    const myTasks = allTasks().filter(t => t.assignedTo === s.name || t.by === s.name || t.byId === s.id);
+    const myDone = myTasks.filter(t => t.status === "Completed");
+    const myOpen = myTasks.filter(t => t.status !== "Completed");
+    const myOverdue = myOpen.filter(t => daysUntil(t.due) < 0);
+    const myEvals = amsGetApplicants().flatMap(a => (a.evaluations || []).filter(e => e.expert === s.name || e.by === s.name)
+      .map(e => ({ ...e, appName: a.name })));
+    const myMeetings = amsGetApplicants().flatMap(a => (a.meetings || []).filter(m => m.by === s.name || m.owner === s.name)
+      .map(m => ({ ...m, appName: a.name })));
+    const myActs = amsGetApplicants().flatMap(a => (a.activities || []).filter(x => x.by === s.name || x.byId === s.id)
+      .map(x => ({ ...x, appName: a.name }))).sort((x, y) => new Date(y.date) - new Date(x.date)).slice(0, 80);
+    const tRows = myTasks.map(t => `<tr><td><b>${escA(t.task)}</b>${t.internal ? ' <span class="chip" style="background:#e0f2fe;color:#075985">Internal</span>' : ""}</td>
+      <td>${t.appId ? `<a href="?v=applicant&id=${encodeURIComponent(t.appId)}">${escA(t.appName)}</a>` : escA(t.appName)}</td>
+      <td>${amsFmtDate(t.due)}</td><td>${escA(t.status)}</td><td>${escA(t.priority || "—")}</td>
+      <td>${t.assignedTo === s.name ? "Assigned" : "Created"}</td></tr>`);
+
+    el.innerHTML = back + head("Staff Member Dossier", `${s.name} — ${s.title || roles[s.role]?.label || s.role}`) + `
+      ${sec(1, "Account & Access", `<div style="display:flex;gap:22px;align-items:flex-start">
+        <div class="avatar-lg">${escA(s.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase())}</div>
+        ${kv([
+          ["Full name", escA(s.name)], ["Email", escA(s.email)], ["Job title", escA(s.title || "—")],
+          ["Role", escA(roles[s.role]?.label || s.role)], ["Status", s.active ? "Active" : "Restricted — cannot sign in"],
+          ["Created", s.createdAt ? amsFmtDate(s.createdAt) : "—"],
+          ["Must change password", s.mustChangePassword ? "Yes (first sign-in)" : "No"],
+        ])}</div>`)}
+      ${sec(2, `Permissions (${(s.perms || []).length})`, `<div class="perm-chips">${(s.perms || []).map(p => `<span class="chip chip-active">${escA(PERM_LABELS[p] || p)}</span>`).join("") || '<span class="sub2">No explicit permissions</span>'}</div>`)}
+      ${sec(3, `Workload — ${myTasks.length} task(s)`, kv([
+        ["Completed", String(myDone.length)], ["Open / in progress", String(myOpen.length)],
+        ["Overdue", String(myOverdue.length)], ["Completion rate", myTasks.length ? Math.round(myDone.length / myTasks.length * 100) + "%" : "—"],
+      ]) + `<h3 class="app-sec-h">All Tasks</h3>` + tbl(["Task", "Applicant", "Due", "Status", "Priority", "Role"], tRows))}
+      ${sec(4, `Evaluations Submitted (${myEvals.length})`, tbl(["Applicant / Project", "Date", "Score", "Status", "Recommendation"], myEvals.map(e => `<tr><td>${escA(e.appName)}</td><td>${amsFmtDate(e.date)}</td><td>${evalTotal(e) ?? "—"}</td><td>${escA(e.status)}</td><td>${escA(e.recommendation || "—")}</td></tr>`)))}
+      ${sec(5, `Meetings Conducted (${myMeetings.length})`, tbl(["Applicant / Project", "Meeting", "Date", "Time", "Status"], myMeetings.map(m => `<tr><td>${escA(m.appName)}</td><td>${escA(m.title)}</td><td>${amsFmtDate(m.date)}</td><td>${escA(m.time || "—")}</td><td>${escA(m.status)}</td></tr>`)))}
+      ${sec(6, `Applicants Handled (${myApps.length})`, tbl(["Applicant", "Project", "Sector", "Stage", "Status", "Progress"], myApps.map(a => `<tr><td><b>${escA(a.applicantName || "—")}</b></td><td><a href="?v=applicant&id=${encodeURIComponent(a.id)}">${escA(a.name)}</a></td><td>${escA(a.sector || "—")}</td><td>${escA(a.stage)}</td><td>${escA(a.status)}</td><td>${a.progress ?? 0}%</td></tr>`)))}
+      ${sec(7, `Activity Log — last ${myActs.length} recorded actions`, tbl(["Date", "Applicant / Project", "Action", "Detail"], myActs.map(x => `<tr><td>${amsFmtDateTime ? amsFmtDateTime(x.date) : amsFmtDate(x.date)}</td><td>${escA(x.appName || "—")}</td><td>${escA(x.title)}</td><td class="sub2">${escA(x.desc || "")}</td></tr>`)))}
+      ${foot}`;
+    return;
+  }
+
+  /* single-record dossiers: task / meeting / procurement / evaluation */
+  if (["task", "meeting", "procurement", "evaluation"].includes(type)) {
+    let rec = null, ctx = null;
+    for (const a of amsGetApplicants()) {
+      if (type === "task" && (a.tasks || []).some(t => t.id === id)) { rec = a.tasks.find(t => t.id === id); ctx = a; break; }
+      if (type === "meeting" && (a.meetings || []).some(m => m.id === id)) { rec = a.meetings.find(m => m.id === id); ctx = a; break; }
+      if (type === "procurement" && (a.procurement || []).some(p => (p.id === id || p.number === id))) { rec = a.procurement.find(p => p.id === id || p.number === id); ctx = a; break; }
+      if (type === "evaluation" && (a.evaluations || []).some(e => e.id === id)) { rec = a.evaluations.find(e => e.id === id); ctx = a; break; }
+      if (type === "task" && (amsGetInternalTasks() || []).some(t => t.id === id)) {
+        rec = { ...amsGetInternalTasks().find(t => t.id === id), internal: true, appName: "Internal" }; break;
+      }
+    }
+    if (!rec) { el.innerHTML = back + '<div class="ams-card">Record not found.</div>'; return; }
+    const labels = { task: "Task Record", meeting: "Meeting Record", procurement: "Purchase Request Record", evaluation: "Evaluation Record" };
+    let body = "";
+    if (type === "task") body = kv([["Task", escA(rec.task)], ["Description", escA(rec.desc || "—")],
+      ["Assigned to", escA(rec.assignedTo)], ["Assigned by", escA(rec.by || "—")], ["Due", amsFmtDate(rec.due)],
+      ["Status", escA(rec.status)], ["Priority", escA(rec.priority || "—")], ["Applicant", escA(rec.appName || "Internal")],
+      ["Created", rec.created ? amsFmtDateTime(rec.created) : "—"], ["Completed", rec.doneAt ? amsFmtDateTime(rec.doneAt) : "—"]])
+      + ((rec.links || []).length ? `<h3 class="app-sec-h">Links</h3><ul>${rec.links.map(l => `<li><a href="${escA(l)}" target="_blank">${escA(l)}</a></li>`).join("")}</ul>` : "")
+      + ((rec.attachments || []).length ? `<h3 class="app-sec-h">Attachments</h3><ul>${rec.attachments.map(f => `<li>${f.fileId ? `<a href="#" class="view-upload" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">${escA(f.name)}</a>` : escA(f.name)}</li>`).join("")}</ul>` : "")
+      + ((rec.updates || []).length ? `<h3 class="app-sec-h">Updates (${rec.updates.length})</h3>` + tbl(["Date", "By", "Note"], rec.updates.map(u => `<tr><td>${amsFmtDateTime(u.date)}</td><td>${escA(u.by)}</td><td class="sub2">${escA(u.note || "")}</td></tr>`)) : "");
+    if (type === "meeting") body = kv([["Meeting", escA(rec.title)], ["Date", amsFmtDate(rec.date)], ["Time", escA(rec.time || "—")],
+      ["Location", escA(rec.location || "—")], ["Status", escA(rec.status)], ["Applicant", escA(ctx ? ctx.name : "—")],
+      ["Notes", escA(rec.notes || rec.desc || "—")]]);
+    if (type === "procurement") body = kv([["PR #", escA(rec.number || rec.id || "—")], ["Title", escA(rec.title || rec.desc || "—")],
+      ["Applicant", escA(ctx ? ctx.name : "—")], ["Amount", rec.amount ? amsMoney(rec.amount) : "—"],
+      ["Date", amsFmtDate(rec.date)], ["Status", escA(rec.status)], ["Details", escA(rec.details || rec.note || "—")]]);
+    if (type === "evaluation") body = kv([["Applicant", escA(ctx ? ctx.name : "—")], ["Expert", escA(rec.expert)],
+      ["Date", amsFmtDate(rec.date)], ["Score", evalTotal(rec) ?? "—"], ["Status", escA(rec.status)],
+      ["Recommendation", escA(rec.recommendation || "—")],
+      ["Strengths", escA(rec.strengths || "—")], ["Weaknesses", escA(rec.weaknesses || "—")], ["Notes", escA(rec.notes || "—")]]);
+    el.innerHTML = back + head(labels[type], ctx ? `${ctx.name} — ${ctx.applicantName || ""}` : "Internal record") + `
+      ${sec(1, labels[type], `<div class="app-dossier">${body}</div>`)}
+      ${ctx ? sec(2, "Related Applicant", `<div class="sub2"><a href="?v=applicant&id=${encodeURIComponent(ctx.id)}">Open full applicant record →</a></div>`) : ""}
+      ${foot}`;
+    bindUploadViewers(el);
+    return;
+  }
+
+  el.innerHTML = back + '<div class="ams-card">Unknown report type.</div>';
+}
+
 /* ============ VIEW: DOCUMENTS (all) ============ */
 function viewDocuments(el) {
   const apps = amsGetApplicants();
@@ -2982,7 +3196,8 @@ function viewTeam(el) {
               </select>
               <button class="abtn ${s.active ? "danger" : ""} sm" data-toggle="${s.id}">
                 ${s.active ? "Restrict" : "Activate"}</button>
-              <button class="abtn ghost sm" data-perms="${s.id}">Permissions</button>`
+              <button class="abtn ghost sm" data-perms="${s.id}">Permissions</button>
+              <a class="abtn ghost sm" href="?v=reportdoc&type=staff&id=${encodeURIComponent(s.id)}" target="_blank">Report</a>`
             : '<span class="sub2">(cannot edit)</span>'}
           </div>
           <div class="perm-grid hidden" id="perms-${s.id}">
@@ -3464,11 +3679,12 @@ const ROUTES = {
   meetings: viewMeetings, tasks: viewTasks, chat: viewChat, evaluations: viewEvaluations,
   procurement: viewProcurement, reports: viewReports, documents: viewDocuments,
   team: viewTeam, settings: viewSettings, formbuilder: viewFormBuilder,
+  reportdoc: viewReportDoc,
 };
 const VIEW_PERM = {
   applicants: "view_applicants", applicant: "view_applicants", meetings: "manage_meetings",
   tasks: "manage_tasks", evaluations: "evaluate", procurement: "manage_procurement",
-  reports: "view_reports", documents: "view_applicants", team: "manage_staff", formbuilder: "manage_form",
+  reports: "view_reports", documents: "view_applicants", team: "manage_staff", formbuilder: "manage_form", reportdoc: "view_reports",
 };
 
 /* safe row/button navigation (no inline JS with user-derived ids) */
