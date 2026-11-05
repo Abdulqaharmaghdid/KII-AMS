@@ -2187,7 +2187,7 @@ function viewTasks(el) {
     const out = [];
     for (const f of (input?.files || [])) {
       const fid = amsUid("f");
-      if (await LS.saveFile(fid, f)) out.push({ fileId: fid, name: f.name, size: f.size });
+      if (await KII.saveFile(fid, f)) out.push({ fileId: fid, name: f.name, size: f.size });
     }
     return out;
   };
@@ -2313,24 +2313,41 @@ function viewChat(el) {
           const who = cur.external ? (m.from === "staff" ? m.name : (m.name || "Applicant")) : m.fromName;
           return `<div class="chat-msg ${mine ? "mine" : ""}">
             <div class="chat-who">${escA(who)} <small>${new Date(m.date).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small></div>
-            <div class="chat-bub">${escA(m.text)}</div></div>`;
+            ${m.text ? `<div class="chat-bub">${escA(m.text)}</div>` : ""}
+            ${(m.files || []).map(f => f.fileId
+              ? `<a href="#" class="view-upload chat-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📄 ${escA(f.name)}</a>`
+              : `<span class="chat-file">📄 ${escA(f.name)}</span>`).join("")}</div>`;
         }).join("") || '<div class="empty-state">No messages yet — say hello.</div>'}</div>
-        <form id="schatForm" style="display:flex;gap:9px;margin-top:12px">
-          <input name="text" placeholder="Message ${escA(cur.name)}…" required autocomplete="off"
+        <form id="schatForm" style="display:flex;gap:9px;margin-top:12px;align-items:center">
+          <input name="text" placeholder="Message ${escA(cur.name)}…" autocomplete="off"
             style="flex:1;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
+          <label class="abtn ghost sm" style="cursor:pointer" title="Attach file / image / video">📎<input type="file" name="files" multiple class="hidden"></label>
           <button class="abtn">Send</button></form>`
         : '<div class="empty-state" style="padding:40px">Select a person, project group or applicant on the left to start chatting.</div>'}
       </div>
     </div>`;
   const box = $ams("#schatBox", el);
   if (box) box.scrollTop = box.scrollHeight;
-  $ams("#schatForm", el)?.addEventListener("submit", (e) => {
+  el.addEventListener("click", async (e) => {
+    const a = e.target.closest(".chat-file.view-upload, .view-upload.chat-file");
+    if (!a) return;
+    e.preventDefault();
+    const f = await KII.getFile(a.dataset.fid);
+    if (f) window.open(URL.createObjectURL(f), "_blank");
+  });
+  $ams("#schatForm", el)?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = e.target.text.value.trim();
+    const files = [];
+    for (const fl of (e.target.files?.files || [])) {
+      const fid = amsUid("f");
+      if (await KII.saveFile(fid, fl)) files.push({ fileId: fid, name: fl.name, size: fl.size, type: fl.type });
+    }
+    if (!text && !files.length) return;
     if (cur.external) {
-      amsPostChat(cur.appId, { from: "staff", name: staff.name + " (KII)", text });
+      amsPostChat(cur.appId, { from: "staff", name: staff.name + " (KII)", text, files });
     } else {
-      amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text });
+      amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text, files });
       if (cur.direct) amsNotify(cur.direct, `Message from ${staff.name}: "${text.slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`);
       if (cur.grp) {
         cur.grp.members.filter(id => id !== staff.id).forEach(id =>

@@ -236,11 +236,19 @@ if (user) {
     const box = document.getElementById("chatBox");
     box.innerHTML = chat.length
       ? chat.map(m => `<div class="chat-msg ${m.from === "applicant" ? "mine" : "theirs"}">
-          <div class="cm">${escHtml(m.text)}</div>
+          ${m.text ? `<div class="cm">${escHtml(m.text)}</div>` : ""}
+          ${(m.files || []).map(f => f.fileId ? `<a href="#" class="chat-file" data-fid="${escHtml(f.fileId)}">📄 ${escHtml(f.name)}</a>` : "").join("")}
           <div class="cm-meta">${escHtml(m.from === "applicant" ? m.name : "KII")} · ${new Date(m.date).toLocaleString()}</div>
         </div>`).join("")
       : '<p class="sub" style="margin:0">No messages yet — say hello to the KII team.</p>';
     box.scrollTop = box.scrollHeight;
+    box.onclick = async (e) => {
+      const a = e.target.closest(".chat-file");
+      if (!a) return;
+      e.preventDefault();
+      const f = await KII.getFile(a.dataset.fid);
+      if (f) window.open(URL.createObjectURL(f), "_blank");
+    };
   }
 
   // applicant completes a task -> update AMS record + activity + notify
@@ -336,13 +344,19 @@ if (user) {
     renderTracker();
   });
 
-  document.getElementById("chatForm").addEventListener("submit", (e) => {
+  document.getElementById("chatForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const rec = getRec();
     const text = e.target.text.value.trim();
-    if (!rec || !text) return;
+    const files = [];
+    for (const fl of (e.target.files?.files || [])) {
+      const fid = amsUid("f");
+      if (await KII.saveFile(fid, fl)) files.push({ fileId: fid, name: fl.name, size: fl.size, type: fl.type });
+    }
+    if (!rec || (!text && !files.length)) return;
     const fullName = user.firstName + " " + user.secondName + " " + user.thirdName;
-    amsPostChat(rec.id, { from: "applicant", name: fullName, text });
+    amsPostChat(rec.id, { from: "applicant", name: fullName, text, files });
+    if (e.target.files) e.target.files.value = "";
     const s = rec.assignedToName && amsGetStaff().find(x => x.name === rec.assignedToName);
     if (s) amsNotify(s.id, `New chat message from ${fullName} (${rec.name})`, `admin.html?v=applicant&id=${encodeURIComponent(rec.id)}&tab=chat`);
     e.target.text.value = "";

@@ -599,3 +599,4 @@ html.kii-fade.kii-out { opacity: 0; transition-duration: .12s; }
 }
 .pw-eye svg { width: 19px; height: 19px; }
 .pw-eye:hover, .pw-eye.on { color: #166e4a; }
+.chat-file { display: inline-block; margin-top: 4px; font-size: 12.5px; color: #166e4a; background: #eef7f1; border-radius: 8px; padding: 4px 10px; text-decoration: none; }
