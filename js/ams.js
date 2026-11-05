@@ -10,6 +10,7 @@ const AMS = {
   MSG_KEY: "kii_ams_messages",
   SET_KEY: "kii_ams_settings",
   ITASK_KEY: "kii_ams_itasks",
+  STCHAT_KEY: "kii_ams_stchat",
 };
 
 /* ---------- roles & permissions ---------- */
@@ -476,6 +477,17 @@ function amsUpdateInternalTask(id, patch) {
   const i = l.findIndex(t => t.id === id);
   if (i >= 0) { l[i] = { ...l[i], ...patch }; amsSaveInternalTasks(l); }
   return l[i] || null;
+}
+
+/* ---------- staff team chat: direct rooms "dm:idA:idB" and project groups "grp:appId" ---------- */
+function amsGetStaffChat(room) {
+  try { return (JSON.parse(localStorage.getItem(AMS.STCHAT_KEY)) || {})[room] || []; } catch { return []; }
+}
+function amsPostStaffChat(room, msg) {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(AMS.STCHAT_KEY)) || {}; } catch {}
+  (all[room] = all[room] || []).push({ id: amsUid("m"), date: new Date().toISOString(), ...msg });
+  localStorage.setItem(AMS.STCHAT_KEY, JSON.stringify(all));
 }
 
 /* ---------- workflow helpers ---------- */

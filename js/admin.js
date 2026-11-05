@@ -10,6 +10,7 @@ const IC = {
   users: I('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.6c2.8.4 5.5 2 5.5 5.4"/>'),
   meet: I('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
   task: I('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8.5 12.5l2.5 2.5 5-6"/>'),
+  chat: I('<path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'),
   eval: I('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>'),
   cart: I('<circle cx="9" cy="20" r="1.6"/><circle cx="17" cy="20" r="1.6"/><path d="M3 4h2l2.5 11h10L21 8H6"/>'),
   report: I('<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>'),
@@ -40,7 +41,8 @@ const NAV = [
   { v: "dashboard", label: "Dashboard", icon: "dash", perm: null },
   { v: "applicants", label: "Applicants", icon: "users", perm: "view_applicants" },
   { v: "meetings", label: "Meetings", icon: "meet", perm: "manage_meetings" },
-  { v: "tasks", label: "Tasks", icon: "task", perm: "manage_tasks" },
+  { v: "tasks", label: "Tasks", icon: "task", perm: null },
+  { v: "chat", label: "Chat", icon: "chat", perm: null },
   { v: "evaluations", label: "Evaluations", icon: "eval", perm: "evaluate" },
   { v: "procurement", label: "Procurement", icon: "cart", perm: "manage_procurement" },
   { v: "reports", label: "Reports", icon: "report", perm: "view_reports" },
@@ -2057,7 +2059,7 @@ function viewMeetings(el) {
 function viewTasks(el) {
   const filter = P.get("f") || "all";
   const fAssignee = P.get("who") || "";
-  const all = allTasks().filter(t => !fAssignee || t.assignedTo === fAssignee);
+  const all = allTasks().filter(t => t.internal && (!fAssignee || t.assignedTo === fAssignee));
   const counts = {
     all: all.length,
     open: all.filter(t => t.status === "Open").length,
@@ -2070,19 +2072,18 @@ function viewTasks(el) {
 
   /* tasks by assignee summary */
   const byAssignee = {};
-  allTasks().forEach(t => {
+  allTasks().filter(t => t.internal).forEach(t => {
     byAssignee[t.assignedTo] = byAssignee[t.assignedTo] || { open: 0, done: 0 };
     t.status === "Completed" ? byAssignee[t.assignedTo].done++ : byAssignee[t.assignedTo].open++;
   });
-  const assignees = [...new Set(allTasks().map(t => t.assignedTo).filter(Boolean))];
+  const assignees = [...new Set(allTasks().filter(t => t.internal).map(t => t.assignedTo).filter(Boolean))];
 
   el.innerHTML = `
     <div class="page-head-row">
       <div><div class="page-title">Tasks / Follow-up</div>
-      <div class="page-sub">All tasks across applicants and internal team tasks</div></div>
+      <div class="page-sub">Internal team tasks — assign work to any staff member, track progress and deadlines</div></div>
       <div style="display:flex;gap:8px">
         <button class="abtn sm" id="addInternal">${IC.plus} New Internal Task</button>
-        <a class="abtn blue sm" href="?v=applicants">${IC.plus} Add Task (choose applicant)</a>
       </div>
     </div>
 
@@ -2107,7 +2108,7 @@ function viewTasks(el) {
       </form>
     </div>
 
-    ${(() => { const at = allTasks().filter(t => t.assignedTo === "Applicant");
+    ${(() => { const at = [];
       return at.length ? `<div class="ams-card"><h3>Tasks Sent to Applicants <span class="sub2">${at.filter(t => t.status !== "Completed").length} open</span></h3>
         <table class="tbl"><thead><tr><th>Task</th><th>Applicant</th><th>Assigned By</th><th>Due Date</th><th>Status</th></tr></thead><tbody>
         ${at.map(t => `<tr><td><b>${escA(t.task)}</b>${t.desc ? `<div class="sub2">${escA(t.desc)}</div>` : ""}
@@ -2160,7 +2161,9 @@ function viewTasks(el) {
         ${(t.updates || []).map(u => `<div class="sub2 tr-view"><b>${escA(u.by)}</b> · ${amsFmtDate(u.date)}${u.note ? ` — ${escA(u.note)}` : ""}
           ${(u.files || []).map(f => f.fileId ? `<a href="#" class="view-upload" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">${escA(f.name)}</a>` : escA(f.name)).join(" · ")}</div>`).join("")}
         ${(t.assignedTo === staff.name || t.byId === staff.id || can("manage_tasks")) ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
-          <select data-istatus="${escA(t.id)}">${["Open", "In Progress", "Completed"].map(s => `<option ${s === t.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+          ${t.status === "Open" ? `<button class="abtn blue sm" data-istart="${escA(t.id)}">▶ Start</button>` : ""}
+          ${t.status !== "Completed" ? `<button class="abtn ghost sm" data-idelay="${escA(t.id)}">Delay</button>` : ""}
+          ${t.status !== "Completed" ? `<button class="abtn sm" data-idone="${escA(t.id)}">✓ Complete</button>` : ""}
           <input type="text" placeholder="Note / update…" data-inote="${escA(t.id)}" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid #d6dee6;border-radius:8px">
           <input type="file" multiple data-ifile="${escA(t.id)}" style="font-size:.8rem">
           <button class="abtn sm" data-iupdate="${escA(t.id)}">Post update</button>
@@ -2209,14 +2212,36 @@ function viewTasks(el) {
   });
   $$ams("[data-itoggle]", el).forEach(b => b.addEventListener("click", () =>
     $ams(`[data-idetail="${b.dataset.itoggle}"]`, el).classList.toggle("hidden")));
-  $$ams("[data-istatus]", el).forEach(sel => sel.addEventListener("change", () => {
-    amsUpdateInternalTask(sel.dataset.istatus, {
-      status: sel.value, doneAt: sel.value === "Completed" ? new Date().toISOString() : "",
+  const iNotify = (t, text) => { if (t && t.byId !== staff.id) amsNotify(t.byId, text, "admin.html?v=tasks"); };
+  $$ams("[data-istart]", el).forEach(b => b.addEventListener("click", () => {
+    amsUpdateInternalTask(b.dataset.istart, { status: "In Progress" });
+    const t = amsGetInternalTasks().find(x => x.id === b.dataset.istart);
+    iNotify(t, `Task started: "${t.task}" by ${staff.name}`);
+    nav("?v=tasks");
+  }));
+  $$ams("[data-idelay]", el).forEach(b => b.addEventListener("click", () => {
+    const t = amsGetInternalTasks().find(x => x.id === b.dataset.idelay);
+    const nd = prompt(`New deadline for "${t.task}" (currently ${t.due}):`, t.due);
+    if (!nd) return;
+    const reason = prompt("Reason for the delay (optional):") || "";
+    amsUpdateInternalTask(t.id, {
+      due: nd, updates: [...(t.updates || []), { by: staff.name, date: new Date().toISOString(),
+        note: `Deadline moved ${amsFmtDate(t.due)} → ${amsFmtDate(nd)}${reason ? " — " + reason : ""}`, files: [] }],
     });
-    if (sel.value === "Completed") {
-      const t = amsGetInternalTasks().find(x => x.id === sel.dataset.istatus);
-      if (t && t.byId !== staff.id) amsNotify(t.byId, `Task completed: "${t.task}" by ${staff.name}`, "admin.html?v=tasks");
-    }
+    iNotify(t, `Task deadline moved to ${amsFmtDate(nd)}: "${t.task}"`);
+    nav("?v=tasks");
+  }));
+  $$ams("[data-idone]", el).forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.idone;
+    const note = $ams(`[data-inote="${id}"]`, el)?.value.trim() || "";
+    const files = await saveFiles($ams(`[data-ifile="${id}"]`, el));
+    const t = amsGetInternalTasks().find(x => x.id === id);
+    amsUpdateInternalTask(id, {
+      status: "Completed", doneAt: new Date().toISOString(),
+      updates: [...(t.updates || []), { by: staff.name, date: new Date().toISOString(),
+        note: "Completed" + (note ? " — " + note : ""), files }],
+    });
+    iNotify(t, `Task completed: "${t.task}" by ${staff.name}`);
     nav("?v=tasks");
   }));
   $$ams("[data-iupdate]", el).forEach(b => b.addEventListener("click", async () => {
@@ -2231,6 +2256,53 @@ function viewTasks(el) {
     if (t.byId !== staff.id) amsNotify(t.byId, `Update on task "${t.task}" by ${staff.name}`, "admin.html?v=tasks");
     nav("?v=tasks");
   }));
+}
+
+/* ============ VIEW: TEAM CHAT ============ */
+function viewChat(el) {
+  const room = P.get("room") || "grp:general";
+  const people = amsGetStaff().filter(s => s.id !== staff.id);
+  const groups = amsGetApplicants().map(a => ({ room: "grp:" + a.id, name: a.name, kind: "Project group" }));
+  const rooms = [
+    { room: "grp:general", name: "All Staff (General)", kind: "Group" },
+    ...people.map(s => ({ room: "dm:" + [staff.id, s.id].sort().join(":"), name: s.name, kind: s.title || s.roleLabel || "Staff", direct: s.id })),
+    ...groups,
+  ];
+  const cur = rooms.find(r => r.room === room) || null;
+  const msgs = cur ? amsGetStaffChat(cur.room) : [];
+
+  el.innerHTML = `
+    <div class="page-head-row"><div><div class="page-title">Team Chat</div>
+      <div class="page-sub">Message any staff member directly, or use a project group for everyone working on it</div></div></div>
+    <div class="chat-layout">
+      <div class="chat-rooms">
+        <div class="chat-rooms-h">People</div>
+        ${rooms.map(r => `<a class="chat-room ${cur && r.room === cur.room ? "on" : ""}" href="?v=chat&room=${encodeURIComponent(r.room)}">
+          <span class="chat-av">${escA(r.name.slice(0, 2).toUpperCase())}</span>
+          <span><b>${escA(r.name)}</b><small>${escA(r.kind)}</small></span></a>`).join("")}
+      </div>
+      <div class="chat-main ams-card" style="margin:0;display:flex;flex-direction:column">
+        ${cur ? `<h3 style="margin-top:0">${escA(cur.name)}</h3>
+        <div id="schatBox" class="chat-box">${msgs.map(m => `
+          <div class="chat-msg ${m.fromId === staff.id ? "mine" : ""}">
+            <div class="chat-who">${escA(m.fromName)} <small>${new Date(m.date).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small></div>
+            <div class="chat-bub">${escA(m.text)}</div></div>`).join("")
+          || '<div class="empty-state">No messages yet — say hello.</div>'}</div>
+        <form id="schatForm" style="display:flex;gap:9px;margin-top:12px">
+          <input name="text" placeholder="Message ${escA(cur.name)}…" required autocomplete="off"
+            style="flex:1;padding:10px 14px;border:1px solid #d6dee6;border-radius:9px;font-family:inherit;font-size:.88rem">
+          <button class="abtn">Send</button></form>`
+        : '<div class="empty-state" style="padding:40px">Select a person or project group on the left to start chatting.</div>'}
+      </div>
+    </div>`;
+  const box = $ams("#schatBox", el);
+  if (box) box.scrollTop = box.scrollHeight;
+  $ams("#schatForm", el)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    amsPostStaffChat(cur.room, { fromId: staff.id, fromName: staff.name, text: e.target.text.value.trim() });
+    if (cur.direct) amsNotify(cur.direct, `Message from ${staff.name}: "${e.target.text.value.trim().slice(0, 60)}"`, `admin.html?v=chat&room=${encodeURIComponent(cur.room)}`);
+    nav(`?v=chat&room=${encodeURIComponent(cur.room)}`);
+  });
 }
 
 /* ============ VIEW: EVALUATIONS (all) ============ */
@@ -2971,7 +3043,7 @@ function viewFormBuilder(el) {
 const content = $ams("#amsContent");
 const ROUTES = {
   dashboard: viewDashboard, applicants: viewApplicants, applicant: viewApplicant,
-  meetings: viewMeetings, tasks: viewTasks, evaluations: viewEvaluations,
+  meetings: viewMeetings, tasks: viewTasks, chat: viewChat, evaluations: viewEvaluations,
   procurement: viewProcurement, reports: viewReports, documents: viewDocuments,
   team: viewTeam, settings: viewSettings, formbuilder: viewFormBuilder,
 };
