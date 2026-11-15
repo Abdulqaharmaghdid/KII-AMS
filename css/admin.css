@@ -746,3 +746,8 @@ tr.kpi-sub td { font-size: .82rem; }
 .acl-matrix thead th:first-child { position: sticky; left: 0; z-index: 5; }
 .acl-matrix tbody td:first-child { position: sticky; left: 0; z-index: 2; box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .acl-matrix tbody tr:hover td:first-child { background: #d3ecd9 !important; }
+/* custom-role checkbox grid fix */
+.inline-form .perm-grid { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px 20px; }
+.inline-form .perm-grid label { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 500; color: #334155; margin: 0; text-align: left; }
+.inline-form .perm-grid input[type=checkbox] { width: 15px; height: 15px; accent-color: #166e4a; flex: none; margin: 0; }
+@media (max-width: 900px) { .inline-form .perm-grid { grid-template-columns: 1fr 1fr; } }
