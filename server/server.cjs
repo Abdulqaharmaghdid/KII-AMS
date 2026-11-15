@@ -382,6 +382,7 @@ async function api(req, res, url) {
       if (!fs.existsSync(file)) return send(res, 404, { error: "File not found." });
       res.writeHead(200, { "Content-Type": rec.type || "application/octet-stream", "Content-Length": fs.statSync(file).size,
         "X-File-Name": encodeURIComponent(rec.name || "file"), "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
         "Content-Disposition": "inline; filename*=UTF-8''" + encodeURIComponent(rec.name || "file") });
       return fs.createReadStream(file).pipe(res);
     }

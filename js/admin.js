@@ -359,11 +359,11 @@ function viewDashboard(el) {
 
   const alerts = [];
   stale.forEach(a =>
-    alerts.push({ sev: "high", text: `${a.name} inactive for ${amsDaysSince(a.lastActivity)} days`, act: "Action required" }));
+    alerts.push({ sev: "high", text: `${escA(a.name)} inactive for ${amsDaysSince(a.lastActivity)} days`, act: "Action required" }));
   const reportsDue = apps.flatMap(a => (a.milestones || []).filter(m => m.status === "Report submitted"));
   if (reportsDue.length) alerts.push({ sev: "med", text: `${reportsDue.length} milestone report(s) waiting for review`, act: "Review" });
   apps.forEach(a => (a.milestones || []).filter(m => m.status !== "Approved" && daysUntil(m.due) < 0)
-    .forEach(m => alerts.push({ sev: "high", text: `Milestone overdue – ${a.name}: ${m.title}`, act: "Overdue" })));
+    .forEach(m => alerts.push({ sev: "high", text: `Milestone overdue – ${escA(a.name)}: ${escA(m.title)}`, act: "Overdue" })));
   if (settings.deadline) {
     const d = daysUntil(settings.deadline + "T23:59:59");
     alerts.push({ sev: d < 0 ? "med" : d <= 14 ? "high" : "med",
@@ -374,7 +374,7 @@ function viewDashboard(el) {
   const pendingPRs = apps.flatMap(a => (a.procurement || []).filter(p => p.status === "Pending"));
   if (pendingPRs.length) alerts.push({ sev: "med", text: `${pendingPRs.length} PRs pending approval`, act: "Follow up" });
   apps.forEach(a => (a.evaluations || []).filter(e => e.status === "Overdue")
-    .forEach(e => alerts.push({ sev: "high", text: `Expert evaluation overdue – ${a.name}`, act: "Overdue" })));
+    .forEach(e => alerts.push({ sev: "high", text: `Expert evaluation overdue – ${escA(a.name)}`, act: "Overdue" })));
 
   el.innerHTML = `
     <div class="page-head-row">
