@@ -654,8 +654,9 @@ tr.kpi-sub td { font-size: .82rem; }
 .chat-picked { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
 .acl-matrix { border-collapse: collapse; width: 100%; }
 .acl-matrix th, .acl-matrix td { border: 1px solid #e3e9ef; padding: 9px 10px; text-align: center; vertical-align: middle; }
-.acl-matrix td:first-child { text-align: left; background: #f7faf8 !important; font-weight: 500; }
-.acl-matrix thead th { vertical-align: middle; padding: 8px 6px; min-width: 60px; font-size: 10.5px; }
+.acl-matrix td:first-child { text-align: left; background: #f7faf8 !important; font-weight: 500; height: 74px; vertical-align: middle; }
+.acl-matrix td:first-child .pl { display: block; transform: rotate(-20deg); transform-origin: left bottom; position: relative; left: 8px; top: 2px; }
+.acl-matrix thead th { vertical-align: bottom; padding: 8px 4px; min-width: 58px; font-size: 10.5px; height: 160px; overflow: visible; }
 .acl-matrix thead th small.sub2 { color: #d9ebdf; }
 .acl-matrix tbody tr:nth-child(odd) td { background: #ffffff; }
 .acl-matrix tbody tr:nth-child(even) td { background: #f4f8f5; }
@@ -740,8 +741,8 @@ tr.kpi-sub td { font-size: .82rem; }
 @media print { .dossier-cover { min-height: 96vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 .kv-tbl { flex: 1; width: 100%; }
 /* frozen matrix scroll */
-.acl-scroll { overflow: auto; max-height: 70vh; border: 1px solid #e3e9ef; border-radius: 8px; padding: 90px 60px 90px 130px; box-sizing: border-box; }
-.acl-scroll .acl-matrix { min-width: 900px; transform: rotate(-14deg); transform-origin: top left; }
+.acl-scroll { overflow: auto; max-height: 70vh; border: 1px solid #e3e9ef; border-radius: 8px; padding: 52px 8px 14px 8px; box-sizing: border-box; }
+.acl-scroll .acl-matrix { min-width: 900px; }
 
 .acl-matrix thead th:first-child { min-width: 190px; text-align: left; }
 .acl-matrix tbody td:first-child { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
@@ -751,7 +752,7 @@ tr.kpi-sub td { font-size: .82rem; }
 .inline-form .perm-grid label { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 500; color: #334155; margin: 0; text-align: left; }
 .inline-form .perm-grid input[type=checkbox] { width: 15px; height: 15px; accent-color: #166e4a; flex: none; margin: 0; }
 @media (max-width: 900px) { .inline-form .perm-grid { grid-template-columns: 1fr 1fr; } }
-.acl-matrix th .rot { display: block; }
+.acl-matrix th .rot { display: inline-block; transform: rotate(-45deg); transform-origin: left bottom; position: relative; left: 44px; top: -4px; white-space: nowrap; }
 .acl-matrix th .rot span { font-size: 10.5px; font-weight: 700; }
 .acl-matrix .acl-roledel { margin-top: 2px; padding: 2px 7px; font-size: .65rem; }
 .acl-matrix .acl-full { font-size: .62rem; color: #d9ebdf; margin-top: 2px; }

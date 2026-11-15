@@ -3199,7 +3199,7 @@ function viewTeam(el) {
         ${roleEntries.map(([k, r]) => `<th title="${escA(r.label)}"><div class="rot"><span>${escA(r.label)}</span></div>${!ROLES[k] ? `<button class="abtn danger sm acl-roledel" data-roledel="${k}">Delete</button>` : k === "master_admin" ? '<div class="acl-full">full access</div>' : ""}</th>`).join("")}
       </tr></thead><tbody>
       ${ALL_PERMS.map(p => `<tr>
-        <td><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></td>
+        <td><div class="pl"><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></div></td>
         ${roleEntries.map(([k, r]) => `<td><input type="checkbox" data-roleperm="${k}|${p}"
           ${r.perms.includes(p) ? "checked" : ""} ${k === "master_admin" ? "disabled" : ""}></td>`).join("")}
       </tr>`).join("")}
