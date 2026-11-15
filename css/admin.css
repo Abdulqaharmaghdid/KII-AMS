@@ -72,6 +72,9 @@ html { scrollbar-gutter: stable; }
   border-bottom: 1px solid var(--line2);
   position: sticky; top: 0; z-index: 30;
 }
+.ams-top .tt { display: flex; align-items: center; gap: 12px; }
+.ams-top .tt-logo { height: 38px; width: auto; flex: none; }
+.ams-top .tt-txt { display: flex; flex-direction: column; justify-content: center; line-height: 1.25; }
 .ams-top .tt h2 { font-size: 1.02rem; color: var(--ink); font-weight: 800; white-space: nowrap; }
 .ams-top .tt small { color: var(--muted2); font-size: .72rem; }
 .ams-top .search { flex: 1; max-width: 400px; margin-left: auto; position: relative; }

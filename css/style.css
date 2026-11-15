@@ -38,7 +38,7 @@ a { color: var(--primary); }
 }
 .topbar .brand { font-size: 1.15rem; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 10px; }
 .topbar .brand .brand-logo { height: 36px; width: auto; }
-.topbar .brand .brand-txt { line-height: 1.1; }
+.topbar .brand .brand-txt { line-height: 1.1; display: flex; align-items: center; gap: 6px; }
 .topbar .brand span { font-weight: 300; opacity: .85; }
 .topbar nav a {
   color: #fff; text-decoration: none; margin-left: 20px;

@@ -239,7 +239,7 @@
         const o = overrides[`${s.id}.${f.key}`];
         if (!o) return f;
         return { ...f, ...(o.label ? { label: o.label } : {}), ...(o.hint != null && o.hint !== "" ? { hint: o.hint } : {}),
-          ...(typeof o.required === "boolean" && typeof f.required !== "function" ? { required: o.required } : {}) };
+          ...(typeof o.required === "boolean" ? { required: o.required } : {}) };
       });
       for (const c of (cfg.custom || []).filter(c => c.section === s.id && c.active !== false)) {
         const at = c.after ? s.fields.findIndex(f => f.key === c.after) : -1;
