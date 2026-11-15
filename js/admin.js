@@ -3194,7 +3194,7 @@ function viewTeam(el) {
 
     <div class="ams-card"><h3>Access Control — Role Permission Matrix</h3>
       <div class="sub2" style="margin-bottom:10px">Choose what each role can do across the whole system. New staff get their role's permissions; you can also give individual staff personal overrides below.</div>
-      <div style="overflow-x:auto"><table class="tbl acl-matrix"><thead><tr>
+      <div class="acl-scroll"><table class="tbl acl-matrix"><thead><tr>
         <th style="text-align:left">Permission</th>
         ${roleEntries.map(([k, r]) => `<th>${escA(r.label)}${!ROLES[k] ? `<br><button class="abtn danger sm" data-roledel="${k}" style="margin-top:3px">Delete</button>` : k === "master_admin" ? '<br><small class="sub2">full access</small>' : ""}</th>`).join("")}
       </tr></thead><tbody>
