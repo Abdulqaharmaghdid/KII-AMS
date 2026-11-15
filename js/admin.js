@@ -3196,7 +3196,7 @@ function viewTeam(el) {
       <div class="sub2" style="margin-bottom:10px">Choose what each role can do across the whole system. New staff get their role's permissions; you can also give individual staff personal overrides below.</div>
       <div class="acl-scroll"><table class="tbl acl-matrix"><thead><tr>
         <th style="text-align:left">Permission</th>
-        ${roleEntries.map(([k, r]) => `<th>${escA(r.label)}${!ROLES[k] ? `<br><button class="abtn danger sm" data-roledel="${k}" style="margin-top:3px">Delete</button>` : k === "master_admin" ? '<br><small class="sub2">full access</small>' : ""}</th>`).join("")}
+        ${roleEntries.map(([k, r]) => `<th title="${escA(r.label)}"><div class="rot"><span>${escA(r.label)}</span></div>${!ROLES[k] ? `<button class="abtn danger sm acl-roledel" data-roledel="${k}">Delete</button>` : k === "master_admin" ? '<div class="acl-full">full access</div>' : ""}</th>`).join("")}
       </tr></thead><tbody>
       ${ALL_PERMS.map(p => `<tr>
         <td><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></td>
