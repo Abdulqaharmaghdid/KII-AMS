@@ -3194,8 +3194,24 @@ function viewTeam(el) {
     </div>
 
     <div class="ams-card"><h3>Access Control — Roles &amp; Permissions</h3>
-      <div class="sub2" style="margin-bottom:14px">Each card is one role — tick what it can do. New staff get their role's permissions; individual overrides are below.</div>
-      <div class="role-cards">
+      <div class="acl-head">
+        <div class="sub2">Choose what each role can do across the system. New staff get their role's permissions; individual overrides are below.</div>
+        <div class="acl-toggle">
+          <button type="button" class="acl-view-btn" data-aclv="matrix">▦ Matrix</button>
+          <button type="button" class="acl-view-btn" data-aclv="cards">▤ Cards</button>
+        </div>
+      </div>
+      <div class="acl-scroll" data-acl="matrix"><table class="tbl acl-matrix"><thead><tr>
+        <th class="acl-perm-h">Permission</th>
+        ${roleEntries.map(([k, r], i) => `<th style="background:${ROLE_COLORS[i % ROLE_COLORS.length]}" title="${escA(r.label)}"><span class="acl-rname">${escA(r.label)}</span>${k === "master_admin" ? '<div class="acl-full">full access</div>' : !ROLES[k] ? `<button class="rc-del" data-roledel="${k}" title="Delete role">×</button>` : ""}</th>`).join("")}
+      </tr></thead><tbody>
+      ${ALL_PERMS.map(p => `<tr>
+        <td><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></td>
+        ${roleEntries.map(([k, r]) => `<td><input type="checkbox" data-roleperm="${k}|${p}"
+          ${r.perms.includes(p) ? "checked" : ""} ${k === "master_admin" ? "disabled" : ""}></td>`).join("")}
+      </tr>`).join("")}
+      </tbody></table></div>
+      <div class="role-cards" data-acl="cards">
       ${roleEntries.map(([k, r], i) => {
         const hue = ROLE_COLORS[i % ROLE_COLORS.length];
         return `<div class="role-card" style="--rc:${hue}">
@@ -3301,6 +3317,16 @@ function viewTeam(el) {
     amsUpdateStaff(s.id, { perms: [...perms] });
     amsAudit(staff.name, cb.checked ? "Permission granted" : "Permission revoked", `${s.name}: ${PERM_LABELS[cb.value]}`);
   }));
+
+  /* ACL: matrix/cards view toggle */
+  const aclView = localStorage.getItem("kii_acl_view") || "matrix";
+  const applyAclView = v => {
+    $$ams("[data-acl]", el).forEach(d => d.style.display = d.dataset.acl === v ? "" : "none");
+    $$ams(".acl-view-btn", el).forEach(b => b.classList.toggle("on", b.dataset.aclv === v));
+    localStorage.setItem("kii_acl_view", v);
+  };
+  applyAclView(aclView);
+  $$ams(".acl-view-btn", el).forEach(b => b.addEventListener("click", () => applyAclView(b.dataset.aclv)));
 
   /* ACL: role matrix + custom roles */
   $$ams("[data-roleperm]", el).forEach(cb => cb.addEventListener("change", () => {

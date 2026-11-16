@@ -654,9 +654,9 @@ tr.kpi-sub td { font-size: .82rem; }
 .chat-picked { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
 .acl-matrix { border-collapse: collapse; width: 100%; }
 .acl-matrix th, .acl-matrix td { border: 1px solid #e3e9ef; padding: 9px 10px; text-align: center; vertical-align: middle; }
-.acl-matrix td:first-child { text-align: left; background: #f7faf8 !important; font-weight: 500; vertical-align: middle; transform: skewX(-24deg); }
+.acl-matrix td:first-child { text-align: left; background: #f7faf8 !important; font-weight: 500; vertical-align: middle; min-width: 210px; }
 .acl-matrix td:first-child .pl { display: block; }
-.acl-matrix thead th { vertical-align: middle; padding: 8px 10px; min-width: 62px; font-size: 10.5px; transform: skewX(-24deg); }
+.acl-matrix thead th { vertical-align: middle; padding: 10px 8px; min-width: 88px; font-size: 11px; }
 .acl-matrix thead th small.sub2 { color: #d9ebdf; }
 .acl-matrix tbody tr:nth-child(odd) td { background: #ffffff; }
 .acl-matrix tbody tr:nth-child(even) td { background: #f4f8f5; }
@@ -775,3 +775,14 @@ tr.kpi-sub td { font-size: .82rem; }
 .rc-perm.on { color: #0f2d24; font-weight: 600; }
 .rc-perm input { width: 15px; height: 15px; accent-color: var(--rc); flex: none; margin: 0; cursor: pointer; }
 .rc-perm.on span::before { content: ""; }
+/* ACL view toggle + straight matrix */
+.acl-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.acl-toggle { display: inline-flex; border: 1px solid #d6dee6; border-radius: 8px; overflow: hidden; flex: none; }
+.acl-view-btn { padding: 7px 14px; font-size: .78rem; font-weight: 600; background: #fff; color: #64748b; border: none; cursor: pointer; }
+.acl-view-btn + .acl-view-btn { border-left: 1px solid #d6dee6; }
+.acl-view-btn.on { background: #166e4a; color: #fff; }
+.acl-matrix { border-collapse: collapse; width: 100%; }
+.acl-perm-h { text-align: left !important; position: sticky; left: 0; z-index: 4; }
+.acl-rname { font-weight: 700; }
+.acl-matrix tbody td:first-child { position: sticky; left: 0; z-index: 2; }
+.acl-matrix thead th { position: sticky; top: 0; z-index: 3; }
