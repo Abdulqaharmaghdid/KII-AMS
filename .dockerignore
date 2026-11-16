@@ -1,0 +1,9 @@
+.git
+.audit-tmp
+data
+node_modules
+tests
+*.log
+fly.toml
+Dockerfile
+.dockerignore
