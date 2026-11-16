@@ -80,13 +80,18 @@ if (signupForm) {
     if (!(age >= 14 && age <= 100)) return showAlert("Please enter a valid date of birth.");
     if (!document.getElementById("privacyConsent").checked)
       return showAlert("Please accept the privacy notice to create your account.");
+    const invite = document.getElementById("invite")?.value.trim() || "";
+    if (!invite) return showAlert("Please enter the invite code given to you by the KII team.");
     if (window.KIIServer?.enabled) {
-      const r = await KIIServer.post("/api/signup", { password, user: { firstName, secondName, thirdName, dob, passport, country, city, town,
+      const r = await KIIServer.post("/api/signup", { password, invite, user: { firstName, secondName, thirdName, dob, passport, country, city, town,
         phone: phoneCode + " " + phone, email, organization, website, privacyConsentAt: new Date().toISOString() } });
       if (!r.ok) return showAlert(r.json.error || "Could not create the account. Please try again.");
       window.location.href = "dashboard.html";
       return;
     }
+    const localInvite = JSON.parse(localStorage.getItem("kii_invite") || "{}").code;
+    if (localInvite && invite !== localInvite)
+      return showAlert("Invalid invite code. Please ask KII staff for the correct code.");
     if (KII.findUser(email)) return showAlert("An account with this email already exists. Please sign in.");
 
     const pw = KII.makePassword(password);

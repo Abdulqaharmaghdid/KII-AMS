@@ -469,6 +469,8 @@ function amsGetSettings() {
   catch { return { ...AMS_DEFAULT_SETTINGS }; }
 }
 function amsSaveSettings(s) { localStorage.setItem(AMS.SET_KEY, JSON.stringify(s)); }
+function amsGetInvite() { try { return JSON.parse(localStorage.getItem("kii_invite")) || {}; } catch { return {}; } }
+function amsSaveInvite(code) { localStorage.setItem("kii_invite", JSON.stringify({ code: String(code || "").trim() })); }
 
 /* ---------- internal team tasks (not tied to an applicant) ---------- */
 function amsGetInternalTasks() {

@@ -81,6 +81,7 @@ if (!json("kii_staff", []).length) {
   console.log("  Created default Master Admin: admin@kii.org / admin123 (you must change it at first sign-in)");
 }
 for (const flag of ["kii_ams_seeded_v1", "kii_ams_clean_v1"]) if (raw(flag) == null) store(flag, "1", "server");
+if (!json("kii_invite", {}).code) store("kii_invite", { code: "KII-2026" }, "server");
 
 /* ---------- sessions ---------- */
 const IDLE = { staff: 60 * 60000, applicant: 12 * 3600000 };
@@ -165,7 +166,7 @@ function canSet(ctx, key) {
   if (CLIENT_ONLY.has(key)) return true;
   if (SERVER_ONLY.has(key) || ITEM_KEYS[key] || key === "kii_ams_audit" || key === "kii_ams_chat") return false;
   if (key === "kii_form_schema" || key === "kii_ams_seeded_v1" || key === "kii_ams_clean_v1") return true;
-  if (key === "kii_ams_settings") return can(ctx.staff, "manage_staff");
+  if (key === "kii_ams_settings" || key === "kii_invite") return can(ctx.staff, "manage_staff");
   if (key === "kii_form_custom") return can(ctx.staff, "manage_form");
   if (ctx.staff) return key.startsWith("kii_");
   return ownsAppKey(key, ctx.applicant) || lc(key) === "kii_selected_" + ctx.applicant;
@@ -307,7 +308,10 @@ async function api(req, res, url) {
     return send(res, 200, { ok: true, rejected: applyOps(ctx, body.ops) });
   }
   if (route === "POST /api/signup") {
-    const { user = {}, password = "" } = await readJson(req);
+    const { user = {}, password = "", invite = "" } = await readJson(req);
+    const invCfg = json("kii_invite", {});
+    if (invCfg.code && String(invite).trim() !== String(invCfg.code).trim())
+      return send(res, 403, { error: "Invalid invite code. Please ask KII staff for the correct code." });
     const email = lc(user.email);
     if (!EMAIL_RE.test(email)) return send(res, 400, { error: "Please enter a valid email address." });
     if (String(password).length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) return send(res, 400, { error: "Password must be at least 8 characters and include letters and numbers." });

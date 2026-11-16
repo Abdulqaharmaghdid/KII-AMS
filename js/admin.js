@@ -3738,6 +3738,9 @@ function viewSettings(el) {
               <option value="false" ${!amsGetSettings().blindReview ? "selected" : ""}>Off — experts see applicant identity</option>
               <option value="true" ${amsGetSettings().blindReview ? "selected" : ""}>On — hide name, CV, photo, video &amp; references</option></select>
             <div class="sub2" style="margin-top:3px">Reduces bias. Applies to staff with the Evaluator / Expert role.</div></div>
+          <div><label>Applicant invite code</label>
+            <input name="invite" value="${escA(amsGetInvite().code || "")}" placeholder="e.g. KII-2026" autocomplete="off">
+            <div class="sub2" style="margin-top:3px">Required on the public signup page — only people you give this code can create an account. Leave empty to open registration to anyone.</div></div>
         </div>
         <button class="abtn sm" style="margin-top:10px">Save Settings</button>
       </form></div>
@@ -3766,8 +3769,9 @@ function viewSettings(el) {
       callName: sys.callName.value.trim() || AMS_DEFAULT_SETTINGS.callName, deadline: sys.deadline.value,
       blindReview: sys.blindReview.value === "true" };
     amsSaveSettings(next);
+    if (sys.invite.value.trim() !== (amsGetInvite().code || "")) amsSaveInvite(sys.invite.value);
     amsAudit(staff.name, "System settings changed",
-      `Inactive ${next.inactiveDays}d · call "${next.callName}" · deadline ${next.deadline || "rolling"} · blind review ${next.blindReview ? "on" : "off"}`);
+      `Inactive ${next.inactiveDays}d · call "${next.callName}" · deadline ${next.deadline || "rolling"} · blind review ${next.blindReview ? "on" : "off"} · invite code ${sys.invite.value.trim() ? "updated" : "cleared (open signup)"}`);
     alert("Settings saved.");
     route();
   });
