@@ -2128,16 +2128,19 @@ function viewMeetings(el) {
     ...amsGetInternalMeetings().map(m => ({ ...m, scope: "internal" })),
   ].sort((x, y) => new Date(x.date + "T" + (x.timeStart || "00:00")) - new Date(y.date + "T" + (y.timeStart || "00:00")));
 
-  /* calendar state — ?mo=YYYY-MM */
+  /* calendar state — ?mo=YYYY-MM (local-time formatting; toISOString would shift the month in UTC+3) */
   const now = new Date();
-  const [cy, cm] = (P.get("mo") || now.toISOString().slice(0, 7)).split("-").map(Number);
+  const fmtMo = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+  const [cy, cm] = (P.get("mo") || fmtMo(now.getFullYear(), now.getMonth())).split("-").map(Number);
   const monthName = new Date(cy, cm - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const first = new Date(cy, cm - 1, 1), startDay = (first.getDay() + 6) % 7; // Mon-first
   const daysIn = new Date(cy, cm, 0).getDate();
-  const prevMo = new Date(cy, cm - 2, 1).toISOString().slice(0, 7), nextMo = new Date(cy, cm, 1).toISOString().slice(0, 7);
+  const pY = cm === 1 ? cy - 1 : cy, pM = cm === 1 ? 11 : cm - 2;
+  const nY = cm === 12 ? cy + 1 : cy, nM = cm === 12 ? 0 : cm;
+  const prevMo = fmtMo(pY, pM), nextMo = fmtMo(nY, nM);
   const byDay = {};
   meetings.forEach(m => { if (m.date) (byDay[m.date] = byDay[m.date] || []).push(m); });
-  const todayIso = now.toISOString().slice(0, 10);
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   let calCells = "";
   for (let i = 0; i < startDay; i++) calCells += '<div class="cal-cell cal-empty"></div>';

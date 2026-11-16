@@ -787,16 +787,16 @@ tr.kpi-sub td { font-size: .82rem; }
 .acl-matrix tbody td:first-child { position: sticky; left: 0; z-index: 2; }
 .acl-matrix thead th { position: sticky; top: 0; z-index: 3; }
 /* meetings calendar + details */
-.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.cal-days > div { font-size: .68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .5px; padding: 4px 8px; }
-.cal-cell { min-height: 86px; border: 1px solid #e9eef3; border-radius: 8px; padding: 5px 7px; background: #fbfcfd; overflow: hidden; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-days > div { font-size: .62rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .5px; padding: 2px 5px; }
+.cal-cell { min-height: 48px; border: 1px solid #e9eef3; border-radius: 6px; padding: 3px 5px; background: #fbfcfd; overflow: hidden; }
 .cal-cell.cal-empty { background: transparent; border-color: transparent; }
 .cal-cell.cal-today { border-color: #166e4a; box-shadow: 0 0 0 1px #166e4a inset; }
 .cal-cell.cal-click { cursor: pointer; } .cal-cell.cal-click:hover { background: #f0f7f3; }
-.cal-num { font-size: .75rem; font-weight: 700; color: #334155; margin-bottom: 3px; }
+.cal-num { font-size: .7rem; font-weight: 700; color: #334155; margin-bottom: 2px; }
 .cal-today .cal-num { color: #166e4a; }
-.cal-ev { font-size: .64rem; font-weight: 600; padding: 2px 6px; border-radius: 5px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev { font-size: .6rem; font-weight: 600; padding: 1px 4px; border-radius: 4px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev-app { background: #dcfce7; color: #166e4a; }
 .ev-int { background: #e0f2fe; color: #075985; }
 .ev-done { opacity: .5; text-decoration: line-through; }
