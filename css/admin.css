@@ -57,7 +57,7 @@ html { scrollbar-gutter: stable; }
 .side-hero { position: absolute; top: 0; left: 0; right: -20px; bottom: 0; z-index: 0; overflow: hidden; }
 
 .side-hero .hero-img { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: auto; }
-.side-hero .hero-veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13,51,37,.88) 0%, rgba(13,51,37,.82) 45%, rgba(6,30,20,.62) 75%, rgba(6,30,20,.8) 100%); }
+.side-hero .hero-veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13,51,37,.92) 0%, rgba(13,51,37,.85) 38%, rgba(13,51,37,.7) 62%, rgba(6,30,20,.55) 82%, rgba(6,30,20,.78) 100%); }
 .side-hero .hero-txt {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px; color: #d9efe4;
   font-size: 1.05rem; font-weight: 700; line-height: 1.4;
