@@ -55,7 +55,7 @@ html { scrollbar-gutter: stable; }
 .side-hero {
   position: relative; margin-top: auto; min-height: 190px;
   overflow: hidden; display: flex; align-items: flex-end;
-  background: linear-gradient(180deg, rgba(6,30,20,.35), rgba(6,30,20,.78)), url("../asset/sidebar.jpeg") center/cover no-repeat;
+  background: linear-gradient(180deg, #0d3325 0%, rgba(13,51,37,.55) 22%, rgba(6,30,20,.45) 55%, rgba(6,30,20,.8) 100%), url("../asset/sidebar.jpeg") center bottom / 100% auto no-repeat;
 }
 
 .side-hero .hero-txt {
