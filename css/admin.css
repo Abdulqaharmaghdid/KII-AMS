@@ -55,9 +55,9 @@ html { scrollbar-gutter: stable; }
 .side-hero {
   position: relative; margin-top: auto; min-height: 190px;
   overflow: hidden; display: flex; align-items: flex-end;
-  background: linear-gradient(180deg, transparent, rgba(6,30,20,.7));
+  background: linear-gradient(180deg, rgba(6,30,20,.35), rgba(6,30,20,.78)), url("../asset/sidebar.jpeg") center/cover no-repeat;
 }
-.side-hero .mtn { position: absolute; inset: auto 0 0 0; width: 100%; height: 100%; opacity: .9; }
+
 .side-hero .hero-txt {
   position: relative; padding: 20px; color: #d9efe4;
   font-size: 1.05rem; font-weight: 700; line-height: 1.4;
