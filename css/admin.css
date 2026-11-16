@@ -24,7 +24,7 @@ html { scrollbar-gutter: stable; }
   background: linear-gradient(175deg, var(--g-dark) 0%, var(--g-side) 55%, #0d3325 100%);
   color: #a9cbb9;
   display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto; scrollbar-gutter: stable;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 .ams-logo {
   position: relative; z-index: 1;
@@ -54,7 +54,7 @@ html { scrollbar-gutter: stable; }
 .ams-nav a.active { background: var(--g-active); color: #fff; font-weight: 600; }
 .ams-nav a.active svg { opacity: 1; }
 
-.side-hero { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.side-hero { position: absolute; top: 0; left: 0; right: -20px; bottom: 0; z-index: 0; overflow: hidden; }
 
 .side-hero .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 62%; }
 .side-hero .hero-veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13,51,37,.88) 0%, rgba(13,51,37,.82) 45%, rgba(6,30,20,.62) 75%, rgba(6,30,20,.8) 100%); }
