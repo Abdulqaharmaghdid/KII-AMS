@@ -3166,6 +3166,7 @@ function viewTeam(el) {
   const list = amsGetStaff();
   const roles = amsGetRoles();
   const roleEntries = Object.entries(roles);
+  const ROLE_COLORS = ["#166e4a", "#0e7490", "#7c3aed", "#b45309", "#be185d", "#1d4ed8", "#a16207", "#0f766e", "#9f1239", "#4d7c0f"];
   const customRoles = roleEntries.filter(([k]) => !ROLES[k]);
   const canEdit = (s) =>
     s.id !== staff.id &&
@@ -3192,18 +3193,25 @@ function viewTeam(el) {
       </form>
     </div>
 
-    <div class="ams-card"><h3>Access Control — Role Permission Matrix</h3>
-      <div class="sub2" style="margin-bottom:10px">Choose what each role can do across the whole system. New staff get their role's permissions; you can also give individual staff personal overrides below.</div>
-      <div class="acl-scroll"><table class="tbl acl-matrix"><thead><tr>
-        <th style="text-align:left">Permission</th>
-        ${roleEntries.map(([k, r]) => `<th title="${escA(r.label)}"><div class="rot"><span>${escA(r.label)}</span></div>${!ROLES[k] ? `<button class="abtn danger sm acl-roledel" data-roledel="${k}">Delete</button>` : k === "master_admin" ? '<div class="acl-full">full access</div>' : ""}</th>`).join("")}
-      </tr></thead><tbody>
-      ${ALL_PERMS.map(p => `<tr>
-        <td><div class="pl"><b>${PERM_LABELS[p]}</b><div class="sub2">${p}</div></div></td>
-        ${roleEntries.map(([k, r]) => `<td><input type="checkbox" data-roleperm="${k}|${p}"
-          ${r.perms.includes(p) ? "checked" : ""} ${k === "master_admin" ? "disabled" : ""}></td>`).join("")}
-      </tr>`).join("")}
-      </tbody></table></div>
+    <div class="ams-card"><h3>Access Control — Roles &amp; Permissions</h3>
+      <div class="sub2" style="margin-bottom:14px">Each card is one role — tick what it can do. New staff get their role's permissions; individual overrides are below.</div>
+      <div class="role-cards">
+      ${roleEntries.map(([k, r], i) => {
+        const hue = ROLE_COLORS[i % ROLE_COLORS.length];
+        return `<div class="role-card" style="--rc:${hue}">
+          <div class="rc-head">
+            <div class="rc-name">${escA(r.label)}</div>
+            <div class="rc-meta">${k === "master_admin" ? '<span class="rc-full">Full access</span>' : `<span class="rc-count">${r.perms.length}/${ALL_PERMS.length} permissions</span>`}
+              ${!ROLES[k] ? `<button class="rc-del" data-roledel="${k}" title="Delete role">×</button>` : ""}</div>
+          </div>
+          <div class="rc-body">
+            ${ALL_PERMS.map(p => `<label class="rc-perm ${r.perms.includes(p) ? "on" : ""}" title="${p}">
+              <input type="checkbox" data-roleperm="${k}|${p}" ${r.perms.includes(p) ? "checked" : ""} ${k === "master_admin" ? "disabled" : ""}>
+              <span>${PERM_LABELS[p]}</span></label>`).join("")}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
       <div style="margin-top:16px;border-top:1px solid #eef1f5;padding-top:14px">
         <h4 style="margin:0 0 8px">Create Custom Role</h4>
         <form id="newRoleForm" class="inline-form">

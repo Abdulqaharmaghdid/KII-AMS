@@ -759,3 +759,19 @@ tr.kpi-sub td { font-size: .82rem; }
 /* restore green header on diagonal matrix */
 .acl-matrix thead th { background: #166e4a; color: #fff; }
 .acl-matrix thead th:first-child { background: #166e4a; }
+/* role permission cards */
+.role-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; }
+.role-card { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.rc-head { padding: 11px 14px; background: var(--rc); color: #fff; }
+.rc-name { font-size: .88rem; font-weight: 700; line-height: 1.25; }
+.rc-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; }
+.rc-count, .rc-full { font-size: .68rem; opacity: .88; }
+.rc-full { font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.rc-del { background: rgba(255,255,255,.18); border: none; color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; }
+.rc-del:hover { background: rgba(220,38,38,.85); }
+.rc-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 1px; }
+.rc-perm { display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 6px; font-size: .76rem; color: #64748b; cursor: pointer; }
+.rc-perm:hover { background: #f1f5f9; }
+.rc-perm.on { color: #0f2d24; font-weight: 600; }
+.rc-perm input { width: 15px; height: 15px; accent-color: var(--rc); flex: none; margin: 0; cursor: pointer; }
+.rc-perm.on span::before { content: ""; }
