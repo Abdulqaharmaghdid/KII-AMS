@@ -10,6 +10,7 @@ const AMS = {
   MSG_KEY: "kii_ams_messages",
   SET_KEY: "kii_ams_settings",
   ITASK_KEY: "kii_ams_itasks",
+  IMEET_KEY: "kii_ams_imeets",
   STCHAT_KEY: "kii_ams_stchat",
   GROUPS_KEY: "kii_ams_groups",
   ROLES_KEY: "kii_ams_roles",
@@ -478,6 +479,18 @@ function amsUpdateInternalTask(id, patch) {
   const l = amsGetInternalTasks();
   const i = l.findIndex(t => t.id === id);
   if (i >= 0) { l[i] = { ...l[i], ...patch }; amsSaveInternalTasks(l); }
+  return l[i] || null;
+}
+
+/* ---------- internal team meetings (not tied to an applicant) ---------- */
+function amsGetInternalMeetings() {
+  try { return JSON.parse(localStorage.getItem(AMS.IMEET_KEY)) || []; } catch { return []; }
+}
+function amsSaveInternalMeetings(l) { localStorage.setItem(AMS.IMEET_KEY, JSON.stringify(l)); }
+function amsUpdateInternalMeeting(id, patch) {
+  const l = amsGetInternalMeetings();
+  const i = l.findIndex(t => t.id === id);
+  if (i >= 0) { l[i] = { ...l[i], ...patch }; amsSaveInternalMeetings(l); }
   return l[i] || null;
 }
 

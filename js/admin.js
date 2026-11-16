@@ -865,37 +865,64 @@ function tabActivity(a, body) {
 
 /* ----- Meetings tab ----- */
 function tabMeetings(a, body) {
+  const canMg = can("manage_meetings");
   body.innerHTML = `
     <div class="ams-card">
       <div class="page-head-row"><h3>Meetings / Follow-up</h3>
-        ${can("manage_meetings") ? `<button class="abtn sm" id="toggleMeetForm">${IC.plus} Schedule Meeting</button>` : ""}</div>
-      <div id="meetFormWrap" class="hidden">${can("manage_meetings") ? `<form id="meetForm" class="inline-form">
+        ${canMg ? `<button class="abtn sm" id="toggleMeetForm">${IC.plus} Schedule Meeting</button>` : ""}</div>
+      <div id="meetFormWrap" class="hidden">${canMg ? `<form id="meetForm" class="inline-form">
         <div class="grid-2">
           <div><label>Title</label><input name="title" required></div>
           <div><label>Date</label><input type="date" name="date" required></div>
-          <div><label>Time</label><input name="time" placeholder="11:00 AM – 12:00 PM"></div>
+          <div><label>Start time</label><input type="time" name="timeStart"></div>
+          <div><label>End time</label><input type="time" name="timeEnd"></div>
+          <div><label>Mode</label><select name="mode"><option>In-person</option><option>Online</option><option>Hybrid</option></select></div>
+          <div><label>Meeting link (Meet / Zoom / Teams)</label><input name="link" type="url" placeholder="https://meet.google.com/…"></div>
           <div><label>Location</label><input name="location" placeholder="KII Office, Erbil"></div>
+          <div><label>Attendees (emails or names)</label><input name="attendees" placeholder="sara@kii.org, applicant@mail.com"></div>
         </div>
         <label>Agenda (one item per line)</label><textarea name="agenda" rows="3"></textarea>
         <button class="abtn sm" style="margin-top:10px">Schedule Meeting</button>
       </form>` : ""}</div>
-      <table class="tbl"><thead><tr><th>Meeting</th><th>Date</th><th>Time</th><th>Location</th><th>Status</th>${can("manage_meetings") ? "<th></th>" : ""}</tr></thead><tbody>
-      ${(a.meetings || []).map(m => `<tr>
+      <table class="tbl"><thead><tr><th>Meeting</th><th>Date</th><th>Time</th><th>Mode / Location</th><th>Status</th><th>MoM</th>${canMg ? "<th></th>" : ""}</tr></thead><tbody>
+      ${(a.meetings || []).map(m => `<tr class="meet-row" data-mid="${m.id}">
         <td><b>${escA(m.title)}</b>${(m.agenda || []).length ? `<div class="sub2">${m.agenda.map(escA).join(" · ")}</div>` : ""}</td>
-        <td>${amsFmtDate(m.date)}</td><td>${escA(m.time || "—")}</td><td>${escA(m.location || "—")}</td>
+        <td>${amsFmtDate(m.date)}</td><td>${escA(m.timeStart || m.time || "—")}</td>
+        <td>${m.mode === "Online" ? `Online${m.link ? ' <a href="' + escA(m.link) + '" target="_blank" class="meet-join">↗</a>' : ""}` : escA(m.location || "—")}</td>
         <td>${chipStatus(m.status)}</td>
-        ${can("manage_meetings") ? `<td>${m.status !== "Done" ? `<button class="abtn ghost sm" data-done="${m.id}">Mark done</button>` : ""}</td>` : ""}
-      </tr>`).join("") || '<tr><td colspan="6"><div class="empty-state">No meetings scheduled.</div></td></tr>'}
+        <td>${m.mom ? '<span class="chip chip-active">MoM ✓</span>' : "—"}</td>
+        ${canMg ? `<td>${m.status !== "Done" ? `<button class="abtn ghost sm" data-done="${m.id}">Mark done</button>` : ""}
+          ${!m.mom ? `<button class="abtn ghost sm" data-mom="${m.id}">MoM</button>` : ""}</td>` : ""}
+      </tr>
+      <tr class="meet-detail-row hidden" data-mrow="${m.id}"><td colspan="7"><div class="meet-detail">
+        <div class="md-grid">
+          ${m.mode ? `<div><div class="md-k">Mode</div>${escA(m.mode)}</div>` : ""}
+          ${m.link ? `<div><div class="md-k">Link</div><a href="${escA(m.link)}" target="_blank" class="meet-join">Join meeting ↗</a></div>` : ""}
+          ${m.location ? `<div><div class="md-k">Location</div>${escA(m.location)}</div>` : ""}
+          ${(m.attendees || []).length ? `<div class="md-full"><div class="md-k">Attendees</div><div class="md-chips">${m.attendees.map(x => `<span class="chip">${escA(x)}</span>`).join("")}</div></div>` : ""}
+          ${(m.attachments || []).length ? `<div class="md-full"><div class="md-k">Attachments</div>${m.attachments.map(f => f.fileId ? `<a href="#" class="view-upload md-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📎 ${escA(f.name)}</a>` : "").join("")}</div>` : ""}
+        </div>
+        ${m.mom ? `<div class="mom-box"><div class="md-k">Minutes of Meeting — ${amsFmtDate(m.mom.at)} by ${escA(m.mom.by)}</div>
+          <div class="mom-text">${escA(m.mom.text).replace(/\n/g, "<br>")}</div>
+          ${(m.mom.files || []).map(f => f.fileId ? `<a href="#" class="view-upload md-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📎 ${escA(f.name)}</a>` : "").join("")}</div>` : ""}
+      </div></td></tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No meetings scheduled.</div></td></tr>'}
       </tbody></table>
     </div>`;
   const tg = $ams("#toggleMeetForm", body);
   if (tg) tg.addEventListener("click", () => $ams("#meetFormWrap", body).classList.toggle("hidden"));
+  $$ams(".meet-row", body).forEach(r => r.addEventListener("click", (e) => {
+    if (e.target.closest("a,button")) return;
+    $ams(`[data-mrow="${r.dataset.mid}"]`, body)?.classList.toggle("hidden");
+  }));
   const f = $ams("#meetForm", body);
   if (f) f.addEventListener("submit", (e) => {
     e.preventDefault();
     (a.meetings = a.meetings || []).push({
       id: amsUid("m"), title: f.title.value, date: f.date.value,
-      time: f.time.value, location: f.location.value, status: "Scheduled",
+      timeStart: f.timeStart.value, timeEnd: f.timeEnd.value,
+      mode: f.mode.value, link: f.link.value.trim(), location: f.location.value,
+      attendees: f.attendees.value.split(/[,;\n]/).map(x => x.trim()).filter(Boolean),
+      status: "Scheduled", by: staff.name, created: new Date().toISOString(),
       agenda: f.agenda.value.split("\n").map(x => x.trim()).filter(Boolean),
     });
     touch(a, { icon: "meet", title: "Meeting scheduled", desc: f.title.value });
@@ -905,6 +932,32 @@ function tabMeetings(a, body) {
     const m = (a.meetings || []).find(x => x.id === b.dataset.done);
     if (m) { m.status = "Done"; saveAndReload(a); }
   }));
+  $$ams("[data-mom]", body).forEach(b => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const row = $ams(`[data-mrow="${b.dataset.mom}"]`, body);
+    row.classList.remove("hidden");
+    const det = row.querySelector(".meet-detail");
+    if (det.querySelector(".mom-form")) return;
+    const form = document.createElement("form");
+    form.className = "mom-form inline-form";
+    form.innerHTML = `<label>Minutes of Meeting — notes, decisions, action points</label>
+      <textarea name="momtext" rows="4" required></textarea>
+      <label>MoM attachments</label><input type="file" name="momfiles" multiple>
+      <div style="margin-top:8px"><button class="abtn sm" type="submit">Save Minutes</button></div>`;
+    det.appendChild(form);
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const mfiles = [];
+      for (const fl of (form.momfiles?.files || [])) {
+        const fid = `mom/${amsUid("f")}_${fl.name}`;
+        try { await KII.saveFile(fid, fl); mfiles.push({ fileId: fid, name: fl.name }); } catch { }
+      }
+      const m = (a.meetings || []).find(x => x.id === b.dataset.mom);
+      if (m) { m.mom = { text: form.momtext.value.trim(), files: mfiles, at: new Date().toISOString(), by: staff.name }; m.status = "Done";
+        touch(a, { icon: "meet", title: "Meeting minutes added", desc: m.title }); saveAndReload(a); }
+    });
+  }));
+  bindUploadViewers(body);
 }
 
 /* ----- Tasks tab ----- */
@@ -2063,23 +2116,223 @@ function tabChat(a, body) {
 }
 
 /* ============ VIEW: MEETINGS (all) ============ */
+/* ============ VIEW: MEETINGS (calendar + full meeting center) ============ */
 function viewMeetings(el) {
-  const rows = amsGetApplicants().flatMap(a => (a.meetings || [])
-    .map(m => ({ ...m, appId: a.id, appName: a.name })))
-    .sort((x, y) => new Date(x.date) - new Date(y.date));
+  const canMg = can("manage_meetings");
+  const apps = amsGetApplicants();
+  const staffL = amsGetStaff();
+
+  /* combined meeting list — applicant-linked + internal */
+  const meetings = [
+    ...apps.flatMap(a => (a.meetings || []).map(m => ({ ...m, appId: a.id, appName: a.name, scope: "applicant", _app: a }))),
+    ...amsGetInternalMeetings().map(m => ({ ...m, scope: "internal" })),
+  ].sort((x, y) => new Date(x.date + "T" + (x.timeStart || "00:00")) - new Date(y.date + "T" + (y.timeStart || "00:00")));
+
+  /* calendar state — ?mo=YYYY-MM */
+  const now = new Date();
+  const [cy, cm] = (P.get("mo") || now.toISOString().slice(0, 7)).split("-").map(Number);
+  const monthName = new Date(cy, cm - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const first = new Date(cy, cm - 1, 1), startDay = (first.getDay() + 6) % 7; // Mon-first
+  const daysIn = new Date(cy, cm, 0).getDate();
+  const prevMo = new Date(cy, cm - 2, 1).toISOString().slice(0, 7), nextMo = new Date(cy, cm, 1).toISOString().slice(0, 7);
+  const byDay = {};
+  meetings.forEach(m => { if (m.date) (byDay[m.date] = byDay[m.date] || []).push(m); });
+  const todayIso = now.toISOString().slice(0, 10);
+
+  let calCells = "";
+  for (let i = 0; i < startDay; i++) calCells += '<div class="cal-cell cal-empty"></div>';
+  for (let d = 1; d <= daysIn; d++) {
+    const iso = `${cy}-${String(cm).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dayMeets = (byDay[iso] || []);
+    calCells += `<div class="cal-cell ${iso === todayIso ? "cal-today" : ""} ${canMg ? "cal-click" : ""}" data-day="${iso}">
+      <div class="cal-num">${d}</div>
+      ${dayMeets.slice(0, 3).map(m => `<div class="cal-ev ${m.scope === "internal" ? "ev-int" : "ev-app"} ${m.status === "Done" ? "ev-done" : ""}" title="${escA(m.title)}${m.scope === "applicant" ? " — " + escA(m.appName) : " — Internal"}">${escA(m.timeStart || "")} ${escA(m.title)}</div>`).join("")}
+      ${dayMeets.length > 3 ? `<div class="cal-more">+${dayMeets.length - 3} more</div>` : ""}
+    </div>`;
+  }
+
+  /* meeting detail row (expandable) */
+  const meetDetail = m => `
+    <div class="meet-detail">
+      <div class="md-grid">
+        <div><div class="md-k">Type</div>${m.scope === "internal" ? '<span class="chip" style="background:#e0f2fe;color:#075985">Internal — team</span>' : `<span class="chip chip-active">Applicant</span> <a href="?v=applicant&id=${encodeURIComponent(m.appId)}">${escA(m.appName)}</a>`}</div>
+        <div><div class="md-k">Mode</div>${escA(m.mode || "In-person")}</div>
+        <div><div class="md-k">Date & time</div>${amsFmtDate(m.date)}${m.timeStart ? " · " + escA(m.timeStart) : ""}${m.timeEnd ? " – " + escA(m.timeEnd) : ""}</div>
+        ${m.link ? `<div><div class="md-k">Meeting link</div><a href="${escA(m.link)}" target="_blank" class="meet-join">Join meeting ↗</a><div class="sub2">${escA(m.link)}</div></div>` : ""}
+        ${m.location ? `<div><div class="md-k">Location</div>${escA(m.location)}</div>` : ""}
+        ${(m.attendees || []).length ? `<div class="md-full"><div class="md-k">Attendees (${m.attendees.length})</div><div class="md-chips">${m.attendees.map(x => `<span class="chip">${escA(x)}</span>`).join("")}</div></div>` : ""}
+        ${(m.agenda || []).length ? `<div class="md-full"><div class="md-k">Agenda</div><ol class="md-list">${m.agenda.map(x => `<li>${escA(x)}</li>`).join("")}</ol></div>` : ""}
+        ${(m.attachments || []).length ? `<div class="md-full"><div class="md-k">Attachments</div>${m.attachments.map(f => f.fileId ? `<a href="#" class="view-upload md-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📎 ${escA(f.name)}</a>` : `<span class="md-file">📎 ${escA(f.name)}</span>`).join("")}</div>` : ""}
+      </div>
+      ${m.mom ? `<div class="mom-box"><div class="md-k">Minutes of Meeting (MoM) — ${amsFmtDate(m.mom.at)} by ${escA(m.mom.by)}</div>
+        <div class="mom-text">${escA(m.mom.text).replace(/\n/g, "<br>")}</div>
+        ${(m.mom.files || []).length ? m.mom.files.map(f => f.fileId ? `<a href="#" class="view-upload md-file" data-fid="${escA(f.fileId)}" data-name="${escA(f.name)}">📎 ${escA(f.name)}</a>` : "").join("") : ""}
+      </div>` : ""}
+      ${canMg ? `<div class="md-actions">
+        ${m.status !== "Done" && m.status !== "Cancelled" ? `<button class="abtn ghost sm" data-mdone="${m.id}" data-mapp="${m.appId || ""}">Mark done</button>` : ""}
+        ${!m.mom ? `<button class="abtn sm" data-mmom="${m.id}" data-mapp="${m.appId || ""}">Add Minutes (MoM)</button>` : ""}
+      </div>` : ""}
+    </div>`;
+
+  const listRows = meetings.filter(m => m.status !== "Cancelled").slice().reverse().map(m => `
+    <tr class="meet-row" data-mid="${m.id}">
+      <td><b>${escA(m.title)}</b><div class="sub2">${m.scope === "internal" ? "Internal team meeting" : escA(m.appName)}</div></td>
+      <td>${m.scope === "internal" ? '<span class="chip" style="background:#e0f2fe;color:#075985">Internal</span>' : '<span class="chip chip-active">Applicant</span>'}</td>
+      <td>${amsFmtDate(m.date)}</td><td>${escA(m.timeStart || m.time || "—")}</td>
+      <td>${m.mode === "Online" ? `Online${m.link ? ' <a href="' + escA(m.link) + '" target="_blank" class="meet-join">↗</a>' : ""}` : m.mode === "Hybrid" ? `Hybrid${m.location ? " · " + escA(m.location) : ""}` : escA(m.location || "—")}</td>
+      <td>${chipStatus(m.status)}</td>
+      <td>${m.mom ? '<span class="chip chip-active">MoM ✓</span>' : '<span class="sub2">—</span>'}</td>
+      <td class="sub2">${escA(m.by || "")}</td>
+    </tr>
+    <tr class="meet-detail-row hidden" data-mrow="${m.id}"><td colspan="8">${meetDetail(m)}</td></tr>`).join("")
+    || '<tr><td colspan="8"><div class="empty-state">No meetings yet — click a calendar day or "New Meeting".</div></td></tr>';
+
   el.innerHTML = `
-    <div class="page-title">Meetings</div>
-    <div class="page-sub">All scheduled and past meetings across applicants</div>
-    <div class="ams-card" style="padding:8px 20px"><table class="tbl"><thead><tr>
-      <th>Applicant</th><th>Meeting</th><th>Date</th><th>Time</th><th>Location</th><th>Status</th><th></th>
-    </tr></thead><tbody>
-    ${rows.map(m => `<tr class="clickable" data-go="?v=applicant&id=${encodeURIComponent(m.appId)}&tab=meetings">
-      <td><b>${escA(m.appName)}</b></td><td>${escA(m.title)}</td>
-      <td>${amsFmtDate(m.date)}</td><td>${escA(m.time || "—")}</td>
-      <td>${escA(m.location || "—")}</td><td>${chipStatus(m.status)}</td>
-      <td class="act-dots">${IC.dots}</td>
-    </tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No meetings.</div></td></tr>'}
-    </tbody></table></div>`;
+    <div class="page-head-row">
+      <div><div class="page-title">Meetings</div>
+      <div class="page-sub">Schedule internal team meetings or applicant meetings — with links, attendees, attachments and minutes</div></div>
+      ${canMg ? `<button class="abtn sm" id="newMeetBtn">${IC.plus} New Meeting</button>` : ""}
+    </div>
+
+    ${canMg ? `<div class="ams-card hidden" id="meetFormCard"><h3>New Meeting</h3>
+      <form id="meetForm" class="inline-form">
+        <div class="grid-2">
+          <div><label>Meeting title *</label><input name="title" required placeholder="e.g. Technical review — Jamana Fashion"></div>
+          <div><label>Meeting type</label><select name="scope"><option value="internal">Internal — team only</option><option value="applicant">Applicant project</option></select></div>
+          <div id="meetAppRow" class="hidden"><label>Applicant / project *</label><select name="appId">
+            ${apps.map(a => `<option value="${escA(a.id)}">${escA(a.name)} — ${escA(a.applicantName || "")}</option>`).join("")}</select></div>
+          <div><label>Date *</label><input type="date" name="date" required></div>
+          <div><label>Start time</label><input type="time" name="timeStart"></div>
+          <div><label>End time</label><input type="time" name="timeEnd"></div>
+          <div><label>Mode</label><select name="mode"><option>In-person</option><option>Online</option><option>Hybrid</option></select></div>
+          <div><label>Meeting link (Google Meet / Zoom / Teams)</label><input name="link" type="url" placeholder="https://meet.google.com/…"></div>
+          <div><label>Location / room</label><input name="location" placeholder="KII Office, Erbil — Room 2"></div>
+          <div><label>Attendees — emails or names (comma-separated)</label><input name="attendees" placeholder="sara@kii.org, omar@kii.org"></div>
+          <div><label>Attachments (agenda docs, etc.)</label><input type="file" name="files" multiple></div>
+          <div style="grid-column:1/-1"><label>Agenda (one item per line)</label><textarea name="agenda" rows="3"></textarea></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="abtn sm" type="submit">Schedule Meeting</button>
+          <button class="abtn ghost sm" type="button" id="cancelMeet">Cancel</button>
+        </div>
+      </form></div>` : ""}
+
+    <div class="ams-card">
+      <div class="cal-head">
+        <button class="abtn ghost sm" data-go="?v=meetings&mo=${prevMo}">‹ Prev</button>
+        <h3 style="margin:0">${monthName}</h3>
+        <button class="abtn ghost sm" data-go="?v=meetings&mo=${nextMo}">Next ›</button>
+      </div>
+      <div class="cal-grid cal-days">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => `<div>${d}</div>`).join("")}</div>
+      <div class="cal-grid">${calCells}</div>
+      <div class="cal-legend"><span class="cal-ev ev-app">Applicant meeting</span><span class="cal-ev ev-int">Internal meeting</span><span class="sub2">Done meetings appear faded</span></div>
+    </div>
+
+    <div class="ams-card" style="padding:8px 20px"><h3 style="padding-top:10px">All Meetings (${meetings.filter(m => m.status !== "Cancelled").length})</h3>
+      <table class="tbl"><thead><tr>
+        <th>Meeting</th><th>Type</th><th>Date</th><th>Time</th><th>Mode / Location</th><th>Status</th><th>MoM</th><th>By</th>
+      </tr></thead><tbody>${listRows}</tbody></table></div>`;
+
+  /* ---------- handlers ---------- */
+  const mcard = $ams("#meetFormCard", el);
+  $ams("#newMeetBtn", el)?.addEventListener("click", () => mcard.classList.toggle("hidden"));
+  $ams("#cancelMeet", el)?.addEventListener("click", () => mcard.classList.add("hidden"));
+  const scopeSel = $ams('#meetForm select[name=scope]', el);
+  scopeSel?.addEventListener("change", () => $ams("#meetAppRow", el).classList.toggle("hidden", scopeSel.value !== "applicant"));
+
+  /* calendar day click → open form with that date */
+  $$ams(".cal-cell.cal-click", el).forEach(c => c.addEventListener("click", (e) => {
+    if (e.target.closest(".cal-ev")) return;
+    mcard.classList.remove("hidden");
+    $ams('#meetForm input[name=date]', el).value = c.dataset.day;
+    mcard.scrollIntoView({ behavior: "smooth" });
+  }));
+
+  /* expand meeting detail row */
+  $$ams(".meet-row", el).forEach(r => r.addEventListener("click", (e) => {
+    if (e.target.closest("a,button")) return;
+    $ams(`[data-mrow="${r.dataset.mid}"]`, el)?.classList.toggle("hidden");
+  }));
+
+  /* create meeting */
+  $ams("#meetForm", el)?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const scope = f.scope.value;
+    const appId = scope === "applicant" ? f.appId.value : "";
+    const attendees = f.attendees.value.split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
+    const files = [];
+    for (const fl of (f.files?.files || [])) {
+      const fid = `meet/${amsUid("f")}_${fl.name}`;
+      try { await KII.saveFile(fid, fl); files.push({ fileId: fid, name: fl.name }); } catch { }
+    }
+    const m = {
+      id: amsUid("m"), title: f.title.value.trim(), date: f.date.value,
+      timeStart: f.timeStart.value || "", timeEnd: f.timeEnd.value || "",
+      mode: f.mode.value, link: f.link.value.trim(), location: f.location.value.trim(),
+      attendees, agenda: f.agenda.value.split("\n").map(x => x.trim()).filter(Boolean),
+      attachments: files, status: "Scheduled", by: staff.name, created: new Date().toISOString(),
+    };
+    if (scope === "applicant") {
+      const a = apps.find(x => x.id === appId);
+      if (!a) return alert("Pick an applicant.");
+      (a.meetings = a.meetings || []).push(m);
+      touch(a, { icon: "meet", title: "Meeting scheduled", desc: `${m.title} — ${amsFmtDate(m.date)}` });
+      amsSaveApplicants(apps);
+    } else {
+      const l = amsGetInternalMeetings(); l.push(m); amsSaveInternalMeetings(l);
+    }
+    /* notify attendees who are staff */
+    attendees.forEach(name => {
+      const s = staffL.find(x => String(x.email).toLowerCase() === name.toLowerCase() || String(x.name).toLowerCase() === name.toLowerCase());
+      if (s && s.id !== staff.id) amsNotify(s.id, `Meeting invitation: "${m.title}" on ${amsFmtDate(m.date)}${m.timeStart ? " " + m.timeStart : ""}`, `admin.html?v=meetings`);
+    });
+    amsAudit(staff.name, "Meeting scheduled", `${m.title} (${scope}) on ${m.date}`);
+    nav("?v=meetings");
+  });
+
+  /* mark done */
+  $$ams("[data-mdone]", el).forEach(b => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (b.dataset.mapp) {
+      const a = apps.find(x => x.id === b.dataset.mapp);
+      const m = a && (a.meetings || []).find(x => x.id === b.dataset.mdone);
+      if (m) { m.status = "Done"; touch(a, { icon: "meet", title: "Meeting held", desc: m.title }); amsSaveApplicants(apps); }
+    } else amsUpdateInternalMeeting(b.dataset.mdone, { status: "Done" });
+    nav("?v=meetings");
+  }));
+
+  /* add MoM — inline prompt then save */
+  $$ams("[data-mmom]", el).forEach(b => b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const td = b.closest(".meet-detail");
+    if (td.querySelector(".mom-form")) return;
+    const form = document.createElement("form");
+    form.className = "mom-form inline-form";
+    form.innerHTML = `<label>Minutes of Meeting — notes, decisions, action points</label>
+      <textarea name="momtext" rows="4" required placeholder="Attendees, what was discussed, decisions taken, action items with owners and deadlines…"></textarea>
+      <label>MoM attachments</label><input type="file" name="momfiles" multiple>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="abtn sm" type="submit">Save Minutes</button></div>`;
+    b.replaceWith(form);
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const momFiles = [];
+      for (const fl of (form.momfiles?.files || [])) {
+        const fid = `mom/${amsUid("f")}_${fl.name}`;
+        try { await KII.saveFile(fid, fl); momFiles.push({ fileId: fid, name: fl.name }); } catch { }
+      }
+      const mom = { text: form.momtext.value.trim(), files: momFiles, at: new Date().toISOString(), by: staff.name };
+      if (b.dataset.mapp) {
+        const a = apps.find(x => x.id === b.dataset.mapp);
+        const m = a && (a.meetings || []).find(x => x.id === b.dataset.mmom);
+        if (m) { m.mom = mom; m.status = "Done"; touch(a, { icon: "meet", title: "Meeting minutes added", desc: m.title }); amsSaveApplicants(apps); }
+      } else amsUpdateInternalMeeting(b.dataset.mmom, { mom, status: "Done" });
+      amsAudit(staff.name, "Meeting minutes added", b.dataset.mmom);
+      nav("?v=meetings");
+    });
+  }));
+
+  bindUploadViewers(el);
 }
 
 /* ============ VIEW: TASKS (all) ============ */
