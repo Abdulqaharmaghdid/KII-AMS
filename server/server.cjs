@@ -119,7 +119,7 @@ const CLIENT_ONLY = new Set(["kii_session", "kii_admin_session", "kii_admin_sess
 const SERVER_ONLY = new Set(["kii_code_counters"]);
 const PUBLIC = new Set(["kii_ams_settings", "kii_form_custom", "kii_form_schema", "kii_ams_seeded_v1", "kii_ams_clean_v1"]);
 const SECRET = ["passHash", "passSalt", "password"];
-const ITEM_KEYS = { kii_users: "email", kii_staff: "id", kii_ams_applicants: "id", kii_ams_notifs: "id", kii_ams_messages: "id" };
+const ITEM_KEYS = { kii_users: "email", kii_staff: "id", kii_ams_applicants: "id", kii_ams_notifs: "id", kii_ams_messages: "id", kii_ams_prs: "id" };
 const NEWEST_FIRST = new Set(["kii_ams_notifs", "kii_ams_messages", "kii_ams_audit"]);
 const CAPS = { kii_ams_notifs: 5000, kii_ams_messages: 5000, kii_ams_audit: 5000 };
 /* staff-only parts of a case record: hidden from the applicant and never writable by them */

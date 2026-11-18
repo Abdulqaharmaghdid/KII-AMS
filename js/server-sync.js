@@ -7,7 +7,7 @@
    Opened without the server (e.g. a plain static host or the automated tests) it does nothing. */
 (function () {
   "use strict";
-  const ITEM_KEYS = { kii_users: "email", kii_staff: "id", kii_ams_applicants: "id", kii_ams_notifs: "id", kii_ams_messages: "id" };
+  const ITEM_KEYS = { kii_users: "email", kii_staff: "id", kii_ams_applicants: "id", kii_ams_notifs: "id", kii_ams_messages: "id", kii_ams_prs: "id" };
   const APPEND_KEYS = new Set(["kii_ams_audit"]), PROPS_KEYS = new Set(["kii_ams_chat"]);
   const CLIENT_ONLY = new Set(["kii_session", "kii_admin_session", "kii_admin_session_seen", "kii_login_locks", "kii_files_pending"]);
   const synced = k => typeof k === "string" && k.startsWith("kii_") && !CLIENT_ONLY.has(k);

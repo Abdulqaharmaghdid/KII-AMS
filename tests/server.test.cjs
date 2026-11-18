@@ -34,7 +34,7 @@ const api = (p, opts = {}) => fetch(BASE + p, { ...opts, headers: { "X-KII": "1"
     await A.waitForFunction(() => document.querySelector("#country").value === "Iraq");
     await A.selectOption("#province", "Erbil");
     await A.fill("#phone", "7501112233"); await A.fill("#emailLocal", "aram.test");
-    await A.fill("#password", "Secret123"); await A.fill("#password2", "Secret123"); await A.check("#privacyConsent");
+    await A.fill("#password", "Secret123"); await A.fill("#password2", "Secret123"); await A.check("#privacyConsent"); await A.fill("#invite", "KII-2026");
     await Promise.all([A.waitForURL(/dashboard\.html/), A.click("#signupForm button[type=submit]")]);
     check(await A.evaluate(() => localStorage.getItem("kii_session")) === "aram.test@gmail.com", "applicant A signed in by the server");
     const emailA = "aram.test@gmail.com";
@@ -52,11 +52,13 @@ const api = (p, opts = {}) => fetch(BASE + p, { ...opts, headers: { "X-KII": "1"
 
     /* ---- applicant B (separate browser) ---- */
     const B = await pageOf(ctxB);
-    const signupB = await ctxB.request.post(BASE + "/api/signup", { headers: { "X-KII": "1" }, data: { password: "Secret456",
+    const signupB = await ctxB.request.post(BASE + "/api/signup", { headers: { "X-KII": "1" }, data: { password: "Secret456", invite: "KII-2026",
       user: { firstName: "Bana", secondName: "Omar", thirdName: "Aziz", email: "bana@test.org", privacyConsentAt: new Date().toISOString() } } });
     check(signupB.ok(), "applicant B signed up via API");
-    check((await ctxB.request.post(BASE + "/api/signup", { headers: { "X-KII": "1" }, data: { password: "Secret456",
+    check((await ctxB.request.post(BASE + "/api/signup", { headers: { "X-KII": "1" }, data: { password: "Secret456", invite: "KII-2026",
       user: { firstName: "X", secondName: "Y", thirdName: "Z", email: "BANA@test.org", privacyConsentAt: "x" } } })).status() === 409, "duplicate email refused");
+    check((await ctxB.request.post(BASE + "/api/signup", { headers: { "X-KII": "1" }, data: { password: "Secret456", invite: "wrong",
+      user: { firstName: "N", secondName: "O", thirdName: "P", email: "nocode@test.org", privacyConsentAt: "x" } } })).status() === 403, "signup without the invite code refused");
     await B.goto(BASE + "/dashboard.html");
     const viewB = await B.evaluate(() => Object.keys(localStorage));
     check(!viewB.some(k => k.includes("aram.test")), "B cannot see A's application");

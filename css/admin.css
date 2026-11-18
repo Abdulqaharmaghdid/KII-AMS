@@ -815,3 +815,49 @@ tr.kpi-sub td { font-size: .82rem; }
 .mom-text { font-size: .85rem; color: #334155; line-height: 1.55; margin-top: 4px; }
 .md-actions { display: flex; gap: 8px; margin-top: 14px; }
 .meet-detail-row > td { background: #fbfdfc; }
+
+/* ============ procurement (PR · RFQ · PO · reception) ============ */
+.prx .page-title .chip { vertical-align: middle; margin-left: 8px; font-size: .72rem; }
+.prx p { font-size: .86rem; color: #334155; margin: 0 0 10px; line-height: 1.55; }
+.pr-ellip { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-steps { display: flex; gap: 6px; padding: 14px 16px; }
+.pr-step { flex: 1; display: flex; align-items: center; gap: 8px; font-size: .78rem; font-weight: 600; color: #94a3b8; padding: 8px 10px; border-radius: 9px; background: #f4f7fa; white-space: nowrap; }
+.pr-step span { width: 22px; height: 22px; flex: none; border-radius: 50%; background: #dfe5ec; color: #64748b; display: grid; place-items: center; font-size: .72rem; }
+.pr-step.done { color: #15803d; background: #ecfdf5; } .pr-step.done span { background: #22c55e; color: #fff; }
+.pr-step.now { color: #92400e; background: #fef3c7; box-shadow: inset 0 0 0 1.5px #f59e0b; } .pr-step.now span { background: #f59e0b; color: #fff; }
+.pr-steps.dead .pr-step { opacity: .55; }
+@media (max-width: 1000px) { .pr-steps { flex-wrap: wrap; } .pr-step { flex: 1 1 30%; } }
+.pr-action { border-left: 4px solid #f59e0b; background: #fffdf5; }
+.pr-wait { border-left: 4px solid #3b82f6; font-size: .86rem; }
+.pr-alert { border-left: 4px solid #dc2626; background: #fef2f2; font-size: .86rem; }
+.pr-ok { border-left: 4px solid #22c55e; background: #f0fdf4; font-size: .86rem; }
+.pr-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.inline-form.pr-plain { background: none; border: 0; padding: 0; margin-bottom: 10px; }
+.inline-form b { display: block; font-size: .8rem; color: #0a2c1e; margin: 14px 0 0; }
+.inline-form b:first-child { margin-top: 0; }
+.pr-kv td { padding: 7px 10px; font-size: .83rem; } .pr-kv td:first-child { width: 150px; color: #64748b; font-weight: 600; }
+.pr-edit input, .pr-edit select { width: 100%; padding: 7px 8px; border: 1px solid #d6dee6; border-radius: 7px; font: inherit; font-size: .82rem; background: #fff; }
+.pr-edit td { padding: 6px 6px; vertical-align: middle; } .pr-edit tfoot td { border-top: 2px solid #e5eaf0; padding-top: 10px; }
+.pr-lt { font-weight: 700; white-space: nowrap; }
+.pr-x { border: 0; background: #fee2e2; color: #dc2626; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1; vertical-align: middle; }
+.pr-types { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pr-types label { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid #dfe5ec; border-radius: 9px; font-size: .84rem; cursor: pointer; }
+.pr-types label:has(input:checked) { border-color: var(--g-accent, #22a06b); background: #ecfdf5; font-weight: 600; }
+.pr-types input[name="typeOther"] { padding: 8px 10px; border: 1px solid #d6dee6; border-radius: 8px; font: inherit; font-size: .84rem; min-width: 220px; }
+.pr-cur { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: .8rem; font-weight: 700; color: #475569; }
+.pr-cur select { padding: 6px 10px; border: 1px solid #d6dee6; border-radius: 7px; font: inherit; }
+.pr-route { margin: 12px 0; padding: 10px 14px; border-radius: 9px; background: #eff6ff; color: #1e3a8a; font-size: .82rem; }
+.pr-consent { display: flex; gap: 10px; align-items: flex-start; font-size: .85rem; color: #334155; line-height: 1.5; }
+.pr-consent input { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--g-active, #166e4a); }
+.pr-sigs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
+@media (max-width: 1000px) { .pr-sigs { grid-template-columns: 1fr 1fr; } }
+.pr-sig { border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 12px; min-height: 96px; background: #fafbfc; }
+.pr-sig.signed { border: 1px solid #a7e3c4; background: #f0fdf4; }
+.pr-sig-role { font-size: .68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; }
+.pr-sig-name { font: italic 1.3rem 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', cursive; color: #0b3d91; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-sig-meta { font-size: .72rem; color: #64748b; } .pr-sig-date { font-size: .72rem; color: #15803d; font-weight: 600; margin-top: 2px; }
+.pr-sig-wait { font-size: .8rem; color: #94a3b8; font-style: italic; margin-top: 18px; }
+.pr-parties { margin: 12px 0; } .pr-parties > div { background: #f8fafc; border-radius: 9px; padding: 10px 12px; font-size: .84rem; }
+.pr-totals { display: flex; gap: 18px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; font-size: .82rem; color: #64748b; }
+.pr-totals b { color: #14202b; margin-left: 4px; } .pr-totals .grand { color: #0a2c1e; font-weight: 700; } .pr-totals .grand b { color: #166e4a; font-size: 1rem; }
+.pr-guide ol { margin: 0; padding-left: 20px; font-size: .83rem; color: #475569; line-height: 1.75; }

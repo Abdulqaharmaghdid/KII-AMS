@@ -321,7 +321,7 @@ if (require.main === module && !process.argv.includes("--browser")) (async () =>
   check(recordA.budgetTotals.USD === 32100, "AMS totals in selected currency");
   check(recordA.uploads.some(f => f.name === "resume.pdf"), "Moved personal CV synchronized");
   check(recordA.applicationReview.length === 9, "Complete review snapshot synchronized");
-  a.eval(read("js/admin.js") + ";window.AdminApi = {tabApplication, tabFinancial: tabFin, reopenPortalApplication, tabMilestones, viewTeam};");
+  a.eval(read("js/procurement.js") + ";" + read("js/admin.js") + ";window.AdminApi = {tabApplication, tabFinancial: tabFin, reopenPortalApplication, tabMilestones, viewTeam};");
   // Master Admin manages the sector catalogue from Team & Roles.
   const teamBody = a.document.getElementById("amsContent");
   a.AdminApi.viewTeam(teamBody);

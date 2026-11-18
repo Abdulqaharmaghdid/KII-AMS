@@ -150,7 +150,7 @@ const clone = object => JSON.parse(JSON.stringify(object));
   check(record.uploads.filter(f => f._key === "transcript_0").length === 2, "AMS indexes all certificates");
   record.stage = "Pitch Deck"; record.stageForced = "Pitch Deck"; record.tasks = [{ id: "one", task: "Included task", status: "Open", due: "2026-10-31", assignedTo: "Applicant" }];
   a.ams.amsSaveApplicants([...records, { id: "old", name: "Excluded old project", appliedDate: "2025-01-01", stage: "Under Evaluation", status: "Active", tasks: [{ id: "old-task", task: "Excluded task", status: "Open", due: "2026-10-31" }] }]);
-  a.eval(read("js/admin.js") + ";window.adminTest = { inApplicationRange, tabApplication, ROUTES, P };");
+  a.eval(read("js/procurement.js") + ";" + read("js/admin.js") + ";window.adminTest = { inApplicationRange, tabApplication, ROUTES, P };");
   check(a.adminTest.inApplicationRange({ appliedDate: "2026-10-31T23:59:59" }, "2026-10-01", "2026-10-31"), "Date filter includes full final day");
   check(!a.document.getElementById("amsContent").textContent.includes("Excluded task"), "Dashboard tasks scoped to selected applications");
   check(a.document.getElementById("amsContent").textContent.includes("Included task"), "Selected applicant task shown");

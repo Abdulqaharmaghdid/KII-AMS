@@ -14,6 +14,7 @@ const AMS = {
   STCHAT_KEY: "kii_ams_stchat",
   GROUPS_KEY: "kii_ams_groups",
   ROLES_KEY: "kii_ams_roles",
+  PR_KEY: "kii_ams_prs",
 };
 
 /* ---------- roles & permissions ---------- */
@@ -68,6 +69,14 @@ const ROLES = {
   business_developer: {
     label: "Business Developer",
     perms: ["view_applicants", "manage_meetings", "manage_tasks", "view_reports"],
+  },
+  procurement_officer: {
+    label: "Procurement Coordinator",
+    perms: ["view_applicants", "manage_procurement", "manage_documents", "view_financials"],
+  },
+  finance_manager: {
+    label: "Finance Manager",
+    perms: ["view_applicants", "view_financials", "manage_financials", "view_reports"],
   },
   evaluator: {
     label: "Evaluator / Expert",
@@ -471,6 +480,16 @@ function amsGetSettings() {
 function amsSaveSettings(s) { localStorage.setItem(AMS.SET_KEY, JSON.stringify(s)); }
 function amsGetInvite() { try { return JSON.parse(localStorage.getItem("kii_invite")) || {}; } catch { return {}; } }
 function amsSaveInvite(code) { localStorage.setItem("kii_invite", JSON.stringify({ code: String(code || "").trim() })); }
+
+/* ---------- purchase requests (PR -> quotations -> PO -> reception), staff-only ---------- */
+function amsGetPrs() { try { return JSON.parse(localStorage.getItem(AMS.PR_KEY)) || []; } catch { return []; } }
+function amsGetPr(id) { return amsGetPrs().find(p => p.id === id) || null; }
+function amsSavePr(pr) {
+  const l = amsGetPrs(), i = l.findIndex(p => p.id === pr.id);
+  pr.updatedAt = new Date().toISOString();
+  if (i >= 0) l[i] = pr; else l.unshift(pr);
+  localStorage.setItem(AMS.PR_KEY, JSON.stringify(l));
+}
 
 /* ---------- internal team tasks (not tied to an applicant) ---------- */
 function amsGetInternalTasks() {

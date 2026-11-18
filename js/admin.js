@@ -44,7 +44,7 @@ const NAV = [
   { v: "tasks", label: "Tasks", icon: "task", perm: null },
   { v: "chat", label: "Chat", icon: "chat", perm: null },
   { v: "evaluations", label: "Evaluations", icon: "eval", perm: "evaluate" },
-  { v: "procurement", label: "Procurement", icon: "cart", perm: "manage_procurement" },
+  { v: "procurement", label: "Procurement", icon: "cart", perm: null },
   { v: "reports", label: "Reports", icon: "report", perm: "view_reports" },
   { v: "documents", label: "Documents", icon: "folder", perm: "view_applicants" },
   { v: "team", label: "Team & Roles", icon: "team", perm: "manage_staff" },
@@ -109,7 +109,7 @@ const navEl = $ams("#amsNav");
 navEl.innerHTML = NAV.filter(n => !n.perm || can(n.perm))
   .map(n => `<a href="?v=${n.v}" data-v="${n.v}">${IC[n.icon]}${n.label}</a>`).join("");
 $$ams("#amsNav a").forEach(a => a.classList.toggle("active",
-  a.dataset.v === view || (view === "applicant" && a.dataset.v === "applicants")));
+  a.dataset.v === view || (view === "applicant" && a.dataset.v === "applicants") || (view === "pr" && a.dataset.v === "procurement")));
 
 /* user chip + dropdown */
 const initials = staff.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -716,7 +716,7 @@ function tabOverview(a, body) {
     <div class="ams-card"><h3>Quick Actions</h3><div class="qa-row">
       ${can("manage_meetings") ? `<a class="abtn sm" href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=meetings">${IC.cal} Schedule Meeting</a>` : ""}
       ${can("manage_documents") ? `<a class="abtn ghost sm" href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=documents">${IC.doc} Add Document</a>` : ""}
-      ${can("manage_procurement") ? `<a class="abtn ghost sm" href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=procurement">${IC.money} Create PR</a>` : ""}
+      <a class="abtn ghost sm" href="?v=procurement&new=1&app=${encodeURIComponent(a.id)}">${IC.money} Create PR</a>
       ${can("evaluate") ? `<a class="abtn ghost sm" href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=evaluations">${IC.eval} Add Evaluation</a>` : ""}
       ${can("view_reports") ? `<a class="abtn ghost sm" href="?v=reports">${IC.report} Generate Report</a>` : ""}
       ${can("edit_applicants") ? `
@@ -1704,7 +1704,7 @@ function syncFin(a) {
   if (!(a.procurement || []).length) return;
   /* older records approved before PO numbering get their PO number backfilled */
   for (const p of a.procurement)
-    if ((p.status === "Approved" || p.status === "Paid") && !p.poId) p.poId = nextPrId(a, "PO");
+    if ((p.status === "Approved" || p.status === "Paid") && !p.poId && !p.v2) p.poId = nextPrId(a, "PO");
   a.committed = a.procurement.filter(p => p.status === "Approved").reduce((s, p) => s + (+p.amount || 0), 0);
   a.spent = a.procurement.filter(p => p.status === "Paid").reduce((s, p) => s + (+p.amount || 0), 0);
 }
@@ -1769,17 +1769,8 @@ function procCard(a) {
   return `
     <div class="ams-card">
       <div class="page-head-row"><h3 style="margin:0">Procurement — Requests &amp; Purchase Orders</h3>
-        ${can("manage_procurement") ? `<button class="abtn sm" id="togglePrForm">${IC.plus} Create PR</button>` : ""}</div>
-      <div id="prFormWrap" class="hidden" style="margin-top:12px">${can("manage_procurement") ? `<form id="prForm" class="inline-form">
-        <div class="grid-2">
-          <div><label>Item / service title</label><input name="title" required maxlength="140"></div>
-          <div><label>Vendor / supplier</label><input name="vendor" maxlength="100"></div>
-          <div><label>Procurement category</label><select name="category">${PROC_CATEGORIES.map(c => `<option ${c === (a.application?.instruction?.devArea || a.application?.innovation?.sector || "") ? "selected" : ""}>${c}</option>`).join("")}</select></div>
-          <div><label>Amount (${supportCurrency(a)})</label><input type="number" name="amount" min="0" step="any" required></div>
-        </div>
-        <div><label>Description / justification</label><textarea name="description" rows="2" maxlength="500"></textarea></div>
-        <button class="abtn sm" style="margin-top:10px">Create PR</button>
-      </form>` : ""}</div>
+        <a class="abtn sm" href="?v=procurement&new=1&app=${encodeURIComponent(a.id)}">${IC.plus} New Purchase Request</a></div>
+      <div class="sub2" style="margin:6px 0 10px">Requests follow the KII procedure: review → 3 quotations → approval / Purchase Order → delivery → Reception &amp; Control.</div>
       <table class="tbl"><thead><tr><th>PR / PO #</th><th>Item</th><th>Vendor</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr></thead><tbody>
       ${(a.procurement || []).map(p => `<tr>
         <td><b>${escA(p.id)}</b>${p.poId ? `<div class="sub2">${escA(p.poId)}</div>` : ""}</td>
@@ -1787,10 +1778,11 @@ function procCard(a) {
         <td>${escA(p.vendor || "—")}</td><td>${procMoney(a, p.amount)}</td>
         <td>${amsFmtDate(p.date)}</td><td>${chipStatus(p.status)}</td>
         <td style="white-space:nowrap">
-          ${can("manage_financials") && p.status === "Pending" ?
+          ${p.v2 ? `<a class="abtn ghost sm" href="?v=pr&id=${encodeURIComponent(p.v2)}">Open</a>` : ""}
+          ${!p.v2 && can("manage_financials") && p.status === "Pending" ?
             `<button class="abtn sm" data-ap="${p.id}">Approve</button> <button class="abtn danger sm" data-rj="${p.id}">Reject</button>` : ""}
-          ${can("manage_financials") && p.status === "Approved" ? `<button class="abtn sm" data-pd="${p.id}">Mark paid</button>` : ""}
-          <button class="abtn ghost sm" data-print="${p.id}">Print</button>
+          ${!p.v2 && can("manage_financials") && p.status === "Approved" ? `<button class="abtn sm" data-pd="${p.id}">Mark paid</button>` : ""}
+          ${p.v2 ? "" : `<button class="abtn ghost sm" data-print="${p.id}">Print</button>`}
         </td>
       </tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No procurement requests.</div></td></tr>'}
       </tbody></table>
@@ -2703,31 +2695,6 @@ function viewEvaluations(el) {
       <td>${chipStatus(e.status)}</td><td class="sub2">${escA(e.notes || "")}</td>
       <td class="act-dots">${IC.dots}</td>
     </tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No evaluations.</div></td></tr>'}
-    </tbody></table></div>`;
-}
-
-/* ============ VIEW: PROCUREMENT (all) ============ */
-function viewProcurement(el) {
-  const rows = amsGetApplicants().flatMap(a => (a.procurement || [])
-    .map(p => ({ ...p, appId: a.id, appName: a.name })));
-  const pending = rows.filter(p => p.status === "Pending");
-  const approved = rows.filter(p => p.status === "Approved");
-  el.innerHTML = `
-    <div class="page-title">Procurement</div>
-    <div class="page-sub">Purchase requests across all applicants</div>
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${statCard("#b45309", "#fef3c7", IC.box, pending.length, "Pending PRs")}
-      ${statCard("#15803d", "#d1fae5", IC.shield, approved.length, "Approved PRs")}
-      ${statCard("#0f766e", "#ccfbf1", IC.money, amsMoney(pending.reduce((s, p) => s + p.amount, 0)), "Pending Value")}
-    </div>
-    <div class="ams-card" style="padding:8px 20px"><table class="tbl"><thead><tr>
-      <th>PR #</th><th>Applicant</th><th>Title</th><th>Amount</th><th>Date</th><th>Status</th><th></th>
-    </tr></thead><tbody>
-    ${rows.map(p => `<tr class="clickable" data-go="?v=applicant&id=${encodeURIComponent(p.appId)}&tab=procurement">
-      <td><b>${escA(p.id)}</b></td><td>${escA(p.appName)}</td><td>${escA(p.title)}</td>
-      <td>${amsMoney(p.amount)}</td><td>${amsFmtDate(p.date)}</td><td>${chipStatus(p.status)}</td>
-      <td class="act-dots">${IC.dots}</td>
-    </tr>`).join("") || '<tr><td colspan="7"><div class="empty-state">No procurement requests.</div></td></tr>'}
     </tbody></table></div>`;
 }
 
@@ -4010,13 +3977,13 @@ const content = $ams("#amsContent");
 const ROUTES = {
   dashboard: viewDashboard, applicants: viewApplicants, applicant: viewApplicant,
   meetings: viewMeetings, tasks: viewTasks, chat: viewChat, evaluations: viewEvaluations,
-  procurement: viewProcurement, reports: viewReports, documents: viewDocuments,
+  procurement: viewProcurement, pr: viewPr, reports: viewReports, documents: viewDocuments,
   team: viewTeam, settings: viewSettings, formbuilder: viewFormBuilder,
   reportdoc: viewReportDoc,
 };
 const VIEW_PERM = {
   applicants: "view_applicants", applicant: "view_applicants", meetings: "manage_meetings",
-  tasks: "manage_tasks", evaluations: "evaluate", procurement: "manage_procurement",
+  tasks: "manage_tasks", evaluations: "evaluate",
   reports: "view_reports", documents: "view_applicants", team: "manage_staff", formbuilder: "manage_form", reportdoc: "view_reports",
 };
 
@@ -4050,7 +4017,7 @@ function nav(url) { history.pushState(null, "", url); route(); }
 function route() {
   readRoute();
   $$ams("#amsNav a").forEach(a => a.classList.toggle("active",
-    a.dataset.v === view || (view === "applicant" && a.dataset.v === "applicants")));
+    a.dataset.v === view || (view === "applicant" && a.dataset.v === "applicants") || (view === "pr" && a.dataset.v === "procurement")));
   content.style.opacity = "0";
   const needed = VIEW_PERM[view];
   if (staff.mustChangePassword && view !== "settings") {
