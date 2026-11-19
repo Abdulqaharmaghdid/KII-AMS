@@ -322,9 +322,10 @@ function viewDashboard(el) {
   const drafts = everything.filter(isDraft);
   const apps = everything.filter(a => !isDraft(a)); // dashboard counts submitted applications only
   const total = apps.length;
-  const live = (a) => !["Rejected", "Withdrawn"].includes(a.outcome);
+  const live = (a) => !amsIsTerminal(a);
   const active = apps.filter(a => a.status === "Active" && live(a)).length;
-  const underEval = apps.filter(a => live(a) && ["Under Evaluation", "Pitch Deck"].includes(a.stage)).length;
+  const underEval = apps.filter(a => live(a) && amsWorkflow(a) === "A" && a.stage !== "Submission Form").length;
+  const inDev = apps.filter(a => live(a) && amsWorkflow(a) === "B").length;
   const stale = apps.filter(a => live(a) && amsDaysSince(a.lastActivity) > inactDays);
   const inactiveX = stale.length;
   const closing = apps.filter(a => live(a) && a.closureDue && daysUntil(a.closureDue) >= 0 && daysUntil(a.closureDue) <= 90).length;
@@ -334,12 +335,13 @@ function viewDashboard(el) {
   const stageCounts = STAGES.map(s => ({ label: s, value: apps.filter(a => a.stage === s).length, color: STAGE_COLORS[s] }));
   const statusMap = {};
   apps.forEach(a => {
-    const k = a.outcome === "Rejected" ? "Rejected" :
+    const k = a.outcome === "Rejected" || a.outcome === "Out of Scope" ? "Rejected" :
       a.status === "Inactive" ? "On Hold" :
-      a.stage === "Under Evaluation" ? "Under Evaluation" : "Active";
+      amsWorkflow(a) === "A" && a.stage !== "Submission Form" ? "Under Evaluation" :
+      amsWorkflow(a) === "B" ? "In Development" : "Active";
     statusMap[k] = (statusMap[k] || 0) + 1;
   });
-  const statusSegs = [["Active", "#22c55e"], ["Under Evaluation", "#f59e0b"], ["On Hold", "#3b82f6"], ["Rejected", "#ef4444"]]
+  const statusSegs = [["Active", "#22c55e"], ["Under Evaluation", "#f59e0b"], ["In Development", "#14b8a6"], ["On Hold", "#3b82f6"], ["Rejected", "#ef4444"]]
     .filter(([k]) => statusMap[k]).map(([k, c]) => ({ label: k, value: statusMap[k], color: c }));
   const sectorMap = {};
   apps.forEach(a => sectorMap[a.sector || "Other"] = (sectorMap[a.sector || "Other"] || 0) + 1);
@@ -391,7 +393,8 @@ function viewDashboard(el) {
     <div class="stat-grid">
       ${statCard("#2563eb", "#dbeafe", IC.doc, total, "Submitted Applications", drafts.length + " draft(s) in progress")}
       ${statCard("#15803d", "#d1fae5", IC.home, active, "Active Projects")}
-      ${statCard("#b45309", "#fef3c7", IC.box, underEval, "Under Evaluation", "incl. interview / pitch")}
+      ${statCard("#b45309", "#fef3c7", IC.box, underEval, "Under Evaluation", "Workflow A — incl. pitch")}
+      ${statCard("#0d9488", "#ccfbf1", IC.gear, inDev, "In Development", "Workflow B — supported projects")}
       ${statCard("#dc2626", "#fee2e2", IC.alertc, inactiveX, `Inactive &gt; ${inactDays} days`)}
       ${statCard("#7c3aed", "#ede9fe", IC.shield, closing, "Approaching Closure", "≤ 90 days")}
       ${statCard("#0f766e", "#ccfbf1", IC.money, amsMoney(support), "Total Support Committed", amsMoney(spent) + " spent")}
@@ -513,7 +516,8 @@ function viewApplicants(el) {
       <div class="filter-bar">
         <div class="fb"><label>Search</label><input type="text" id="fq" value="${escA(P.get("q") || "")}" placeholder="Applicant, project…"></div>
         <div class="fb"><label>Stage</label><select id="fstage"><option value="">All</option>
-          ${STAGES.map(s => `<option ${s === fStage ? "selected" : ""}>${s}</option>`).join("")}</select></div>
+          <optgroup label="Workflow A — Application Evaluation">${WF_A_STAGES.map(s => `<option ${s === fStage ? "selected" : ""}>${s}</option>`).join("")}</optgroup>
+          <optgroup label="Workflow B — Development &amp; Support">${WF_B_STAGES.map(s => `<option ${s === fStage ? "selected" : ""}>${s}</option>`).join("")}</optgroup></select></div>
         <div class="fb"><label>Category</label><select id="fsector"><option value="">All</option>
           ${sectors.map(s => `<option ${s === fSector ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></div>
         <div class="fb"><label>Status / Outcome</label><select id="fstatus"><option value="">All</option>
@@ -539,7 +543,7 @@ function viewApplicants(el) {
         <td><b>${escA(a.name)}</b><div class="sub2">${blindReview() ? "" : escA(a.applicantName || "")}${portalFlag(a)}</div></td>
         <td><span class="scope-badge ${a.inScope ? "scope-in" : "scope-out"}">${a.inScope ? "In scope" : "Out of scope"}</span></td>
         <td>${escA(a.sector || "—")}</td>
-        <td><span class="chip chip-stage" style="border-left:3px solid ${STAGE_COLORS[a.stage] || "#94a3b8"}">${escA(a.stage)}</span></td>
+        <td><span class="chip chip-stage" style="border-left:3px solid ${STAGE_COLORS[a.stage] || "#94a3b8"}">${amsWorkflow(a)} · ${escA(a.stage)}</span></td>
         <td>${a.outcome ? `<span class="chip" style="background:${OUTCOME_COLORS[a.outcome]}22;color:${OUTCOME_COLORS[a.outcome]}">${a.outcome}</span>` : chipStatus(a.status)}</td>
         <td>${escA(a.assignedToName || "—")}</td>
         <td>${amsFmtDate(a.appliedDate)}</td>
@@ -580,11 +584,23 @@ const TABS = [
 ];
 
 function workflowStepper(a) {
-  const cur = STAGES.indexOf(a.stage);
-  return `<div class="ams-card" style="padding:0"><div class="stepper">
-    ${STAGES.map((s, i) => `<div class="step ${i < cur ? "done" : i === cur ? "current" : ""}">
-      <div class="dot2">${i < cur ? "✓" : i + 1}</div><div class="sl">${escA(s)}</div></div>`).join("")}
-  </div></div>`;
+  const lane = (wf, label, stages) => {
+    const reached = wf === "A" || amsWorkflow(a) === "B";
+    const cur = amsWorkflow(a) === wf ? stages.indexOf(a.stage) : (wf === "A" ? stages.length : -1);
+    return `<div class="wf-lane ${reached ? "" : "dim"}">
+      <div class="wf-tag">Workflow ${wf} · ${label}</div>
+      <div class="stepper">${stages.map((s, i) => `<div class="step ${i < cur ? "done" : i === cur ? "current" : ""}">
+        <div class="dot2">${i < cur ? "✓" : i + 1}</div><div class="sl">${escA(s)}</div></div>`).join("")}
+      </div></div>`;
+  };
+  const stateChip = a.state ? `<span class="chip" style="background:${STATE_COLORS[a.state] || "#64748b"}22;color:${STATE_COLORS[a.state] || "#64748b"}">${escA(a.state)}</span>` : "";
+  const outChip = a.outcome ? `<span class="chip" style="background:${OUTCOME_COLORS[a.outcome]}22;color:${OUTCOME_COLORS[a.outcome]}">${escA(a.outcome)}</span>` : "";
+  return `<div class="ams-card" style="padding:14px 18px">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">${stateChip}${outChip}
+      ${a.decisionNotified ? '<span class="sub2">Applicant notified ' + amsFmtDate(a.decisionNotified) + "</span>" : ""}</div>
+    ${lane("A", "Application Evaluation", WF_A_STAGES)}
+    ${lane("B", "Project Development &amp; Support", WF_B_STAGES)}
+  </div>`;
 }
 
 function viewApplicant(el) {
@@ -593,7 +609,9 @@ function viewApplicant(el) {
 
   const tabs = TABS.filter(([id]) => !(blindReview() && (id === "chat" || id === "communication"))).map(([id, lbl]) =>
     `<a href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=${id}" class="${tab === id ? "active" : ""}">${lbl}</a>`).join("");
-  const next = amsNextStage(a.stage);
+  const next = amsNextStage(a);
+  const needsB = amsWorkflow(a) === "A" && APPROVED_OUTCOMES.includes(a.outcome);
+  const canDecide = can("edit_applicants") && !isDraft(a) && !a.portalData?.withdrawn && !amsIsTerminal(a);
 
   el.innerHTML = `
     <div class="crumbs"><a href="?v=applicants">Applicants</a><span class="sep">›</span><b>${escA(a.name)}</b></div>
@@ -616,8 +634,11 @@ function viewApplicant(el) {
       </div>
       <div style="margin-left:auto;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
         ${can("view_reports") ? `<a class="abtn ghost sm" href="?v=reportdoc&type=applicant&id=${encodeURIComponent(a.id)}" target="_blank">${IC.report} Full Report</a>` : ""}
-        ${can("edit_applicants") && next && !isDraft(a) && !a.portalData?.withdrawn && a.outcome !== "Rejected"
-          ? `<button class="abtn sm" id="advanceBtn">Advance to “${escA(next)}”</button>` : ""}
+        ${canDecide && next ? `<button class="abtn sm" id="advanceBtn">Advance to “${escA(next)}”</button>` : ""}
+        ${canDecide && needsB ? `<button class="abtn sm" id="toBBtn">Start Workflow B — Support Planning</button>` : ""}
+        ${canDecide ? `<select id="stateSel" class="task-status" title="Workflow state">
+          ${amsWfStates(a).map(s => `<option ${s === a.state ? "selected" : ""}>${s}</option>`).join("")}
+        </select>` : ""}
         ${isDraft(a) ? '<span class="sub2">Draft — the applicant has not submitted yet</span>' : ""}
         ${can("edit_applicants") ? `<select id="assignSel" class="task-status">
           <option value="">Assign to…</option>
@@ -632,11 +653,25 @@ function viewApplicant(el) {
 
   const adv = $ams("#advanceBtn");
   if (adv) adv.addEventListener("click", () => {
-    if (a.stage === "Under Evaluation" && !(a.evaluations || []).some(e => e.status === "Completed")
+    if (a.stage === "Pitch & Expert Evaluation" && !(a.evaluations || []).some(e => e.status === "Completed")
       && !confirm("No expert evaluation has been completed for this application yet. Advance anyway?")) return;
     if (!confirm(`Advance "${a.name}" to “${next}”? The responsible team will be notified.`)) return;
     const moved = amsAdvanceStage(a, staff.name);
     if (moved) { saveAndReload(a); }
+  });
+  const toB = $ams("#toBBtn");
+  if (toB) toB.addEventListener("click", () => {
+    if (!confirm(`Move "${a.name}" to Workflow B (Project Development & Support)? The support plan starts at Support Planning.`)) return;
+    amsMoveToB(a, staff.name);
+    saveAndReload(a);
+  });
+  const stSel = $ams("#stateSel");
+  if (stSel) stSel.addEventListener("change", () => {
+    if (stSel.value === a.state) return;
+    amsSetState(a, stSel.value, staff.name);
+    if (stSel.value === "Awaiting Applicant")
+      touch(a, { icon: "status", title: "Awaiting applicant", desc: "Case waits on the applicant — consider assigning a task." });
+    saveAndReload(a);
   });
 
   const asg = $ams("#assignSel");
@@ -671,10 +706,12 @@ function renderTab(a, body) {
 
 /* ----- Overview tab ----- */
 const STAGE_SUB = {
-  "Submitted Form": "Awaiting initial review", "Under Evaluation": "Scoring & expert review",
-  "Approval": "Final approval decision", "Pitch Deck": "Panel presentation",
-  "Market Validation": "Business & market validation", "Prototype Development": "Product development and piloting",
-  "Investor / Stakeholder": "Investor readiness & engagement",
+  "Submission Form": "Awaiting initial review", "Screening": "Eligibility & completeness check",
+  "Committee Review": "Evaluation committee review", "Pitch & Expert Evaluation": "Pitch & expert assessment",
+  "Final Decision": "Awaiting final decision",
+  "Support Planning": "Support plan & onboarding", "Project Development": "Solution development",
+  "Testing & Validation": "Testing and validation", "Market & Stakeholder Engagement": "Market access & stakeholders",
+  "Launch & Completion": "Launch & close-out",
 };
 function tabOverview(a, body) {
   const nextMeet = (a.meetings || []).filter(m => m.status !== "Done")
@@ -721,7 +758,7 @@ function tabOverview(a, body) {
       ${can("view_reports") ? `<a class="abtn ghost sm" href="?v=reports">${IC.report} Generate Report</a>` : ""}
       ${can("edit_applicants") ? `
         <form id="stageForm" style="display:inline-flex;gap:8px;margin-left:auto">
-          <select name="stage" class="task-status">${STAGES.map(s => `<option ${s === a.stage ? "selected" : ""}>${s}</option>`).join("")}</select>
+          <select name="stage" class="task-status">${amsWfStages(a).map(s => `<option ${s === a.stage ? "selected" : ""}>${s}</option>`).join("")}</select>
           <button class="abtn ghost sm">Update Stage</button>
         </form>` : ""}
     </div></div>
@@ -775,20 +812,51 @@ function tabOverview(a, body) {
             ${escA(s)}</label>`).join("")}
         </div>
       </div>
-      <div class="ams-card"><h3>Stage Checklist — ${escA(a.stage)}</h3>
+      <div class="ams-card"><h3>Stage Gate Checklist — ${escA(a.stage)}</h3>
         <div class="checklist" id="stageChecklist">
           ${amsChecklist(a).map((c, i) => `<label class="${c.done ? "done" : ""}">
             <input type="checkbox" data-chk="${i}" ${c.done ? "checked" : ""} ${can("edit_applicants") || can("manage_tasks") ? "" : "disabled"}>
             <span>${escA(c.label)}</span></label>`).join("") || '<div class="empty-state">No checklist for this stage.</div>'}
         </div>
       </div>
+      ${amsWorkflow(a) === "A" ? `
+      <div class="ams-card"><h3>Evaluation Milestones</h3>
+        <div class="checklist">
+          ${amsMilestones(a).map(m => `<label class="${m.done ? "done" : ""}">
+            <input type="checkbox" data-ms="${m.id}" ${m.done ? "checked" : ""} ${can("edit_applicants") || can("manage_tasks") ? "" : "disabled"}>
+            <span>${escA(m.label)}<div class="sub2">${escA(m.stage)} · ${escA(m.owner)}${m.done && m.date ? " · " + amsFmtDate(m.date) : ""}</div></span>
+          </label>`).join("")}
+        </div>
+        ${a.outcome && !a.decisionNotified ? '<div class="sub2" style="margin-top:8px">The decision is hidden from the applicant until “Applicant notified of decision” is checked.</div>' : ""}
+        ${(a.conditions || []).length ? `<div style="margin-top:10px"><b>Approval conditions</b>
+          ${a.conditions.map((c, i) => `<label class="${c.done ? "done" : ""}" style="display:flex;gap:6px">
+            <input type="checkbox" data-cond="${i}" ${c.done ? "checked" : ""} ${can("edit_applicants") ? "" : "disabled"}>
+            <span>${escA(c.text)}${c.done && c.date ? ` <span class="sub2">· ${amsFmtDate(c.date)}</span>` : ""}</span></label>`).join("")}</div>` : ""}
+      </div>` : `
+      <div class="ams-card"><h3>Support Tracks — ${escA(amsWfLabel(a))}</h3>
+        <table class="tbl"><thead><tr><th style="width:26px"></th><th>Track</th><th>Status</th><th>Owner</th><th>Due</th></tr></thead><tbody>
+        ${WF_B_TRACKS.map(t => { const tr = (a.tracks || {})[t] || {}; const sel = tr.sel || t === "Project Completion"; return `<tr>
+          <td><input type="checkbox" data-trk-sel="${escA(t)}" ${sel ? "checked" : ""} ${t === "Project Completion" ? "disabled" : ""} ${can("edit_applicants") ? "" : "disabled"}></td>
+          <td><b>${escA(t)}</b>${t === "Procurement Support" ? `<div class="sub2">${amsGetPrs().filter(p => p.appId === a.id).length} linked PR(s)</div>` : ""}</td>
+          <td>${sel ? `<select class="task-status" data-trk-st="${escA(t)}" ${can("edit_applicants") ? "" : "disabled"}>${TRACK_STATUSES.map(s => `<option ${s === (tr.status || "Not Started") ? "selected" : ""}>${s}</option>`).join("")}</select>` : '<span class="sub2">—</span>'}</td>
+          <td>${sel ? `<input class="task-status" data-trk-own="${escA(t)}" value="${escA(tr.owner || "")}" placeholder="Staff name" ${can("edit_applicants") ? "" : "disabled"}>` : ""}</td>
+          <td>${sel ? `<input type="date" class="task-status" data-trk-due="${escA(t)}" value="${escA(tr.due || "")}" ${can("edit_applicants") ? "" : "disabled"}>` : ""}</td>
+        </tr>`; }).join("")}</tbody></table>
+        ${(a.conditions || []).length ? `<div style="margin-top:10px"><b>Approval conditions to meet</b>
+          ${a.conditions.map((c, i) => `<label class="${c.done ? "done" : ""}" style="display:flex;gap:6px">
+            <input type="checkbox" data-cond="${i}" ${c.done ? "checked" : ""} ${can("edit_applicants") ? "" : "disabled"}>
+            <span>${escA(c.text)}${c.done && c.date ? ` <span class="sub2">· ${amsFmtDate(c.date)}</span>` : ""}</span></label>`).join("")}</div>` : ""}
+      </div>`}
     </div>`;
 
   const sf = $ams("#stageForm", body);
   if (sf) sf.addEventListener("submit", (e) => {
     e.preventDefault();
+    const prev = a.stage, stages = amsWfStages(a);
     a.stage = sf.stage.value;
     a.stageForced = sf.stage.value;
+    if (stages.indexOf(a.stage) < stages.indexOf(prev)) amsGate(a, "Returned", `${prev} → ${a.stage}`, staff.name);
+    else if (stages.indexOf(a.stage) > stages.indexOf(prev)) amsGate(a, "Advanced", `${prev} → ${a.stage}`, staff.name);
     touch(a, { icon: "status", title: "Stage updated", desc: "Stage changed to " + a.stage });
     saveAndReload(a);
   });
@@ -811,6 +879,41 @@ function tabOverview(a, body) {
     touch(a, { icon: "task", title: "Checklist updated", desc: `"${amsChecklist(a)[+cb.dataset.chk]?.label}" ${cb.checked ? "completed" : "reopened"}` });
     saveAndReload(a);
   }));
+
+  /* Workflow A milestones */
+  $$ams("[data-ms]", body).forEach(cb => cb.addEventListener("change", () => {
+    const def = WF_A_MILESTONES.find(m => m.id === cb.dataset.ms);
+    amsSetMilestone(a, cb.dataset.ms, cb.checked, staff.name);
+    touch(a, { icon: "task", title: `Milestone ${cb.checked ? "completed" : "reopened"}`, desc: def?.label || cb.dataset.ms });
+    if (cb.dataset.ms === "notified" && cb.checked && a.outcome && !APPROVED_OUTCOMES.includes(a.outcome))
+      sendTemplate(a, a.outcome === "Rejected" || a.outcome === "Out of Scope" ? "rejected" : "closure");
+    saveAndReload(a);
+  }));
+
+  /* approval conditions */
+  $$ams("[data-cond]", body).forEach(cb => cb.addEventListener("change", () => {
+    const c = (a.conditions || [])[+cb.dataset.cond];
+    if (!c) return;
+    c.done = cb.checked; c.date = cb.checked ? new Date().toISOString() : ""; c.by = cb.checked ? staff.name : "";
+    touch(a, { icon: "task", title: `Condition ${cb.checked ? "met" : "reopened"}`, desc: c.text });
+    saveAndReload(a);
+  }));
+
+  /* Workflow B support tracks */
+  const track = (t) => (a.tracks = a.tracks || {}, a.tracks[t] = a.tracks[t] || { sel: true, status: "Not Started", owner: "", due: "", note: "" });
+  $$ams("[data-trk-sel]", body).forEach(cb => cb.addEventListener("change", () => {
+    const tr = track(cb.dataset.trkSel);
+    tr.sel = cb.checked;
+    touch(a, { icon: "task", title: "Support track " + (cb.checked ? "added" : "removed"), desc: cb.dataset.trkSel });
+    saveAndReload(a);
+  }));
+  [["data-trk-st", (tr, v) => tr.status = v, "Status"], ["data-trk-own", (tr, v) => tr.owner = v, "Owner"], ["data-trk-due", (tr, v) => tr.due = v, "Due date"]]
+    .forEach(([attr, set, what]) => $$ams(`[${attr}]`, body).forEach(inp => inp.addEventListener("change", () => {
+      const key = Object.keys(inp.dataset)[0];
+      set(track(inp.dataset[key]), inp.value);
+      touch(a, { icon: "task", title: "Track updated", desc: `${inp.dataset[key]} — ${what}: ${inp.value}` });
+      saveAndReload(a);
+    })));
 }
 
 /* ----- Activity tab ----- */
@@ -1881,15 +1984,24 @@ function tabFin(a, body) {
 
 /* ----- Decisions tab (structured decisions drive the workflow) ----- */
 const DECISION_TYPES = {
-  advance: { label: "Approve — move to next stage", tpl: null },
-  shortlist: { label: "Shortlist for interview / pitch", tpl: "shortlisted" },
-  accept: { label: "Accept for support", tpl: "approved" },
-  conditional: { label: "Accept with conditions", tpl: "approved" },
-  revision: { label: "Request revision from applicant (reopens the form)", tpl: "revision" },
-  hold: { label: "Put on hold", tpl: null },
-  reject: { label: "Reject", tpl: "rejected" },
-  closeOk: { label: "Close project — successful", tpl: "closure" },
-  other: { label: "Other (record only)", tpl: null },
+  advance: { label: "Advance — move to next stage", tpl: null, wf: "AB" },
+  loopback: { label: "Return to earlier stage (loop back)", tpl: null, wf: "AB" },
+  shortlist: { label: "Invite to pitch", tpl: "shortlisted", wf: "A" },
+  approve: { label: "Final decision — Approve for support (→ Workflow B)", tpl: "approved", wf: "A" },
+  conditional: { label: "Final decision — Conditionally approve (→ Workflow B)", tpl: "approved", wf: "A" },
+  outscope: { label: "Final decision — Out of scope", tpl: "rejected", wf: "A" },
+  reject: { label: "Final decision — Reject", tpl: "rejected", wf: "A" },
+  revision: { label: "Request revision from applicant (reopens the form)", tpl: "revision", wf: "A" },
+  hold: { label: "Put on hold", tpl: null, wf: "AB" },
+  resume: { label: "Resume — back to Active", tpl: null, wf: "AB" },
+  notify: { label: "Record applicant notification of decision", tpl: null, wf: "A" },
+  closeOk: { label: "Close — Successfully completed", tpl: "closure", wf: "B" },
+  closePartial: { label: "Close — Partially completed", tpl: "closure", wf: "B" },
+  closeInactive: { label: "Close – Inactive", tpl: null, wf: "B" },
+  discontinue: { label: "Close – Discontinued", tpl: null, wf: "B" },
+  transfer: { label: "Transferred to another organization", tpl: null, wf: "B" },
+  withdraw: { label: "Record applicant withdrawal", tpl: null, wf: "AB" },
+  other: { label: "Other (record only)", tpl: null, wf: "AB" },
 };
 /* send a templated message to the applicant and log it */
 function sendTemplate(a, tplKey, extra) {
@@ -1925,10 +2037,18 @@ function tabDecisions(a, body) {
         <a href="?v=applicant&id=${encodeURIComponent(a.id)}&tab=evaluations">view details</a></div>` : ""}
       <div id="decFormWrap" class="hidden" style="margin-top:12px">${can("make_decisions") ? `<form id="decForm" class="inline-form">
         <div class="grid-2">
-          <div><label>Decision</label><select name="type">${Object.entries(DECISION_TYPES).map(([k, d]) => `<option value="${k}">${escA(d.label)}</option>`).join("")}</select></div>
+          <div><label>Decision</label><select name="type">${Object.entries(DECISION_TYPES)
+            .filter(([, d]) => d.wf === "AB" || d.wf === amsWorkflow(a))
+            .map(([k, d]) => `<option value="${k}">${escA(d.label)}</option>`).join("")}</select></div>
           <div><label>Title (optional)</label><input name="decision" placeholder="Short summary of the decision"></div>
         </div>
-        <label>Rationale / conditions / requested changes</label><textarea name="notes" rows="3" placeholder="Explain the reason. For revisions, tell the applicant exactly what to change."></textarea>
+        <div class="grid-2">
+          <div id="loopRow" class="hidden"><label>Return to stage</label><select name="loopto">
+            ${amsWfStages(a).slice(0, Math.max(0, amsWfStages(a).indexOf(a.stage))).map(s => `<option>${escA(s)}</option>`).join("")}
+          </select></div>
+          <div id="destRow" class="hidden"><label>Transfer destination (organization)</label><input name="dest" placeholder="e.g. Ministry of …"></div>
+        </div>
+        <label>Rationale / conditions / requested changes</label><textarea name="notes" rows="3" placeholder="Explain the reason. For conditional approval, list each condition on its own line. For revisions, tell the applicant exactly what to change."></textarea>
         <label class="inline-check"><input type="checkbox" name="notify" checked> Send the matching message to the applicant</label>
         <button class="abtn sm" style="margin-top:10px">Record Decision</button>
       </form>` : ""}</div>
@@ -1940,28 +2060,53 @@ function tabDecisions(a, body) {
   const tg = $ams("#toggleDecForm", body);
   if (tg) tg.addEventListener("click", () => $ams("#decFormWrap", body).classList.toggle("hidden"));
   const f = $ams("#decForm", body);
+  if (f) {
+    f.type.addEventListener("change", () => {
+      $ams("#loopRow", body).classList.toggle("hidden", f.type.value !== "loopback");
+      $ams("#destRow", body).classList.toggle("hidden", f.type.value !== "transfer");
+    });
+  }
   if (f) f.addEventListener("submit", (e) => {
     e.preventDefault();
     const type = f.type.value, def = DECISION_TYPES[type], notes = f.notes.value.trim();
-    if ((type === "revision" || type === "reject" || type === "conditional") && !notes) {
+    if (["revision", "reject", "conditional", "outscope", "loopback", "closePartial", "discontinue", "withdraw"].includes(type) && !notes) {
       alert("Please write the rationale / conditions / requested changes for this decision."); return;
     }
+    if (type === "transfer" && !f.dest.value.trim()) { alert("Please enter the destination organization."); return; }
     const setStage = (s) => { a.stage = s; a.stageForced = s; };
-    const idxOf = (s) => STAGES.indexOf(s);
     switch (type) {
-      case "advance": amsAdvanceStage(a, staff.name); break;
-      case "shortlist": setStage("Pitch Deck"); break;
-      case "accept": case "conditional":
-        a.outcome = "Supported"; a.status = "Active";
-        if (idxOf(a.stage) < idxOf("Pitch Deck")) setStage("Pitch Deck");
-        amsNotifyRole(STAGE_OWNER["Pitch Deck"], `"${a.name}" was accepted — prepare the pitch / support plan.`, `admin.html?v=applicant&id=${encodeURIComponent(a.id)}`);
+      case "advance":
+        if (!amsAdvanceStage(a, staff.name)) { alert("Already at the last stage — record a decision to move forward."); return; }
         break;
+      case "loopback":
+        if (!amsLoopBack(a, f.loopto.value, notes, staff.name)) { alert("Cannot return to that stage."); return; }
+        break;
+      case "shortlist": setStage("Pitch & Expert Evaluation"); break;
+      case "approve": amsDecide(a, "Approved for Support", notes, staff.name); break;
+      case "conditional":
+        amsDecide(a, "Conditionally Approved", notes, staff.name, {
+          conditions: notes.split("\n").map(x => x.trim()).filter(Boolean).map(text => ({ text, done: false })),
+        });
+        break;
+      case "outscope": amsDecide(a, "Out of Scope", notes, staff.name); break;
+      case "reject": amsDecide(a, "Rejected", notes, staff.name); break;
       case "revision":
         if (!reopenPortalApplication(a, notes)) { alert("This applicant has no portal application to reopen."); return; }
+        amsSetState(a, "Awaiting Applicant", staff.name);
         break;
-      case "hold": a.status = "Inactive"; break;
-      case "reject": a.outcome = "Rejected"; a.status = "Inactive"; break;
-      case "closeOk": a.outcome = "Successful"; setStage("Investor / Stakeholder"); break;
+      case "hold": amsSetState(a, "On Hold", staff.name); break;
+      case "resume": amsSetState(a, "Active", staff.name); break;
+      case "notify":
+        amsSetMilestone(a, "notified", true, staff.name, notes);
+        if (a.state === "Evaluation Completed") a.state = "Closed";
+        amsSyncStatus(a);
+        break;
+      case "closeOk": amsDecide(a, "Successfully Completed", notes, staff.name); setStage("Launch & Completion"); a.state = "Completed"; amsSyncStatus(a); break;
+      case "closePartial": amsDecide(a, "Partially Completed", notes, staff.name); a.state = "Completed"; amsSyncStatus(a); break;
+      case "closeInactive": amsDecide(a, "Closed – Inactive", notes, staff.name); a.state = "Closed"; amsSyncStatus(a); break;
+      case "discontinue": amsDecide(a, "Closed – Discontinued", notes, staff.name); a.state = "Closed"; amsSyncStatus(a); break;
+      case "transfer": amsDecide(a, "Transferred", notes, staff.name, { transferTo: f.dest.value.trim() }); a.state = "Closed"; amsSyncStatus(a); break;
+      case "withdraw": amsDecide(a, "Withdrawn", notes, staff.name); a.state = "Closed"; amsSyncStatus(a); break;
     }
     const title = f.decision.value.trim() || def.label;
     (a.decisions = a.decisions || []).unshift({ date: new Date().toISOString(), type, decision: title, by: staff.name, notes });
@@ -2660,7 +2805,7 @@ function viewChat(el) {
 /* ============ VIEW: EVALUATIONS (all) ============ */
 function viewEvaluations(el) {
   const apps = amsGetApplicants();
-  const queue = apps.filter(a => a.stage === "Under Evaluation");
+  const queue = apps.filter(a => amsWorkflow(a) === "A" && ["Screening", "Committee Review", "Pitch & Expert Evaluation"].includes(a.stage) && !a.outcome);
   const rows = apps.flatMap(a => (a.evaluations || [])
     .map(e => ({ ...e, appId: a.id, appName: a.name })))
     .sort((x, y) => new Date(y.date) - new Date(x.date));
@@ -2669,7 +2814,7 @@ function viewEvaluations(el) {
     <div class="page-sub">Technical review queue and completed evaluations</div>
 
     <div class="ams-card"><h3>Awaiting Evaluation (${queue.length})</h3>
-      <div class="sub2" style="margin:-6px 0 10px">Cases in the Under Evaluation stage — open one to submit your assessment.</div>
+      <div class="sub2" style="margin:-6px 0 10px">Cases in Workflow A evaluation stages — open one to submit your assessment.</div>
       <table class="tbl"><thead><tr><th>Applicant / Project</th><th>Sector</th><th>Assigned</th><th>Evaluations</th><th>Your status</th><th>Days waiting</th><th></th></tr></thead><tbody>
       ${queue.map(a => {
         const mine = (a.evaluations || []).find(e => e.staffId === staff.id);
@@ -2767,7 +2912,9 @@ function viewReports(el) {
     (!fTo || (a.appliedDate || "") <= fTo) &&
     (!fSector || a.sector === fSector) &&
     (!fStage || a.stage === fStage) &&
-    (!fStatus || a.status === fStatus || a.outcome === fStatus) &&
+    (!fStatus || a.status === fStatus || a.outcome === fStatus || a.stage === fStatus
+      || (fStatus === "Under Evaluation" && amsWorkflow(a) === "A" && a.stage !== "Submission Form")
+      || (fStatus === "In Development" && amsWorkflow(a) === "B")) &&
     (!fAssigned || a.assignedToName === fAssigned) &&
     (!fScope || (fScope === "in" ? a.inScope : !a.inScope)));
 
@@ -2830,7 +2977,7 @@ function viewReports(el) {
   } : null;
 
   /* ---- narrative data for the professional summary ---- */
-  const underEvalN = apps.filter(a => a.stage === "Under Evaluation" || a.stage === "Pitch Deck").length;
+  const underEvalN = apps.filter(a => amsWorkflow(a) === "A" && a.stage !== "Submission Form" && !a.outcome).length;
   const activeN = apps.filter(a => a.status === "Active").length;
   const staleN = apps.filter(a => a.status === "Active" && amsDaysSince(a.lastActivity) > amsGetSettings().inactiveDays).length;
   const overdueT = tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length;
@@ -2900,7 +3047,7 @@ function viewReports(el) {
       <label>Stage <select name="stage"><option value="">All</option>
         ${STAGES.map(s => `<option ${s === fStage ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
       <label>Status <select name="status"><option value="">All</option>
-        ${["Active", "Inactive", "Under Evaluation", "Pitch Deck", "Rejected", "Withdrawn", "Approved", "Submitted Form"].map(s => `<option ${s === fStatus ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
+        ${["Active", "Inactive", "Under Evaluation", "In Development", "Rejected", "Withdrawn", "Approved", "Submission Form"].map(s => `<option ${s === fStatus ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
       <label>Assigned <select name="assigned"><option value="">All</option>
         ${assignees.map(s => `<option ${s === fAssigned ? "selected" : ""}>${escA(s)}</option>`).join("")}</select></label>
       <label>Scope <select name="scope"><option value="">All</option>

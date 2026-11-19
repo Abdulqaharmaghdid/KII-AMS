@@ -124,8 +124,9 @@ const NEWEST_FIRST = new Set(["kii_ams_notifs", "kii_ams_messages", "kii_ams_aud
 const CAPS = { kii_ams_notifs: 5000, kii_ams_messages: 5000, kii_ams_audit: 5000 };
 /* staff-only parts of a case record: hidden from the applicant and never writable by them */
 const APPLICANT_HIDDEN = ["evaluations", "decisions", "kpis", "kpiSheets", "checklist", "procurement", "documents", "meetings",
-  "messages", "spent", "committed", "supportApproved", "inScope", "internalNotes", "notes", "assignedTo"];
-const APPLICANT_LOCKED = [...APPLICANT_HIDDEN, "stage", "stageForced", "outcome", "assignedToName"];
+  "messages", "spent", "committed", "supportApproved", "inScope", "internalNotes", "notes", "assignedTo", "gates", "conditions", "transferTo"];
+const APPLICANT_LOCKED = [...APPLICANT_HIDDEN, "stage", "stageForced", "outcome", "assignedToName",
+  "workflow", "state", "wfMilestones", "tracks", "decisionNotified", "wfAOutcome"];
 const STAFF_SELF_FIELDS = ["passHash", "passSalt", "mustChangePassword", "lastLogin"];
 const strip = o => { const c = { ...o }; SECRET.forEach(f => delete c[f]); return c; };
 const omit = (o, fields) => { const c = { ...o }; fields.forEach(f => delete c[f]); return c; };
@@ -146,7 +147,12 @@ function readable(ctx, key, value) {
   if (key === "kii_users") return JSON.stringify((parse() || []).filter(u => lc(u.email) === e).map(strip));
   if (key === "kii_staff") return JSON.stringify((parse() || []).filter(s => s.active)
     .map(s => ({ id: s.id, name: s.name, role: s.role, title: s.title, active: s.active, perms: s.perms })));
-  if (key === "kii_ams_applicants") return JSON.stringify((parse() || []).filter(a => ownsPortal(a.id, e)).map(a => omit(a, APPLICANT_HIDDEN)));
+  if (key === "kii_ams_applicants") return JSON.stringify((parse() || []).filter(a => ownsPortal(a.id, e)).map(a => {
+    const c = omit(a, APPLICANT_HIDDEN);
+    /* the evaluation outcome is only visible after staff record the notification milestone */
+    if (a.workflow !== "B" && !a.decisionNotified) delete c.outcome;
+    return c;
+  }));
   if (key === "kii_ams_messages") return JSON.stringify((parse() || []).filter(m => m.appId && ownsPortal(m.appId, e)));
   if (key === "kii_ams_chat") return JSON.stringify(Object.fromEntries(Object.entries(parse() || {}).filter(([id]) => ownsPortal(id, e))));
   return undefined;

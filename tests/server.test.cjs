@@ -90,13 +90,13 @@ const api = (p, opts = {}) => fetch(BASE + p, { ...opts, headers: { "X-KII": "1"
 
     /* staff moves A to a new stage; A's dashboard sync must not undo it, and A cannot see evaluations */
     await S.evaluate(() => { const l = amsGetApplicants(); const a = l.find(x => x.applicantEmail === "aram.test@gmail.com");
-      a.stage = a.stageForced = "Approval"; a.evaluations = [{ id: "ev1", score: 4, by: "Expert" }]; amsSaveApplicants(l); });
+      a.stage = a.stageForced = "Final Decision"; a.evaluations = [{ id: "ev1", score: 4, by: "Expert" }]; amsSaveApplicants(l); });
     await A.goto(BASE + "/dashboard.html");
     await A.waitForTimeout(300);
-    check(await A.evaluate(() => amsGetApplicants()[0]?.stage) === "Approval", "applicant sees the stage set by staff");
+    check(await A.evaluate(() => amsGetApplicants()[0]?.stage) === "Final Decision", "applicant sees the stage set by staff");
     check(await A.evaluate(() => !amsGetApplicants()[0]?.evaluations), "evaluations are hidden from the applicant");
     await S.reload(); await S.waitForSelector("#amsNav a");
-    check(await S.evaluate(() => { const a = amsGetApplicants().find(x => x.applicantEmail === "aram.test@gmail.com"); return a.stage === "Approval" && a.evaluations.length === 1; }), "applicant sync never overwrites staff-only fields");
+    check(await S.evaluate(() => { const a = amsGetApplicants().find(x => x.applicantEmail === "aram.test@gmail.com"); return a.stage === "Final Decision" && a.evaluations.length === 1; }), "applicant sync never overwrites staff-only fields");
 
     /* chat in both directions */
     await A.evaluate(() => amsPostChat(amsGetApplicants()[0].id, { from: "applicant", name: "Aram", text: "Hello team" }));

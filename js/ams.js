@@ -89,52 +89,113 @@ const ROLES = {
 };
 
 /* ---------- workflow stages (approval chain) ---------- */
-const STAGES = ["Submitted Form", "Under Evaluation", "Approval", "Pitch Deck",
-  "Market Validation", "Prototype Development", "Investor / Stakeholder"];
+/* ===== Two-workflow pipeline (ISO 56002-aligned) =====
+   Workflow A — Application Evaluation: 5 gate stages from submission to decision.
+   Workflow B — Project Development & Support: 5 delivery stages after approval.
+   Stage = where the initiative is · State = what it is currently waiting on ·
+   Outcome = its disposition · Milestone/Track = a concrete checkpoint. */
+const WF_A_NAME = "Application Evaluation";
+const WF_B_NAME = "Project Development & Support";
+const WF_A_STAGES = ["Submission Form", "Screening", "Committee Review", "Pitch & Expert Evaluation", "Final Decision"];
+const WF_B_STAGES = ["Support Planning", "Project Development", "Testing & Validation", "Market & Stakeholder Engagement", "Launch & Completion"];
+const STAGES = [...WF_A_STAGES, ...WF_B_STAGES];
+const WF_A_STATES = ["Active", "Awaiting Applicant", "Awaiting KII Review", "On Hold", "Evaluation Completed"];
+const WF_B_STATES = ["Active", "Awaiting Applicant", "Awaiting KII Action", "Awaiting External Party", "On Hold", "Completed", "Closed"];
+const WF_A_OUTCOMES = ["Pending Decision", "Approved for Support", "Conditionally Approved", "Rejected", "Out of Scope", "Withdrawn"];
+const WF_B_OUTCOMES = ["Ongoing", "Successfully Completed", "Partially Completed", "Closed – Inactive", "Closed – Discontinued", "Withdrawn", "Transferred"];
+const OUTCOMES = [...new Set([...WF_A_OUTCOMES, ...WF_B_OUTCOMES])];
+/* outcomes that close a case (Approved/Conditionally Approved close Workflow A by moving it to B) */
+const TERMINAL_OUTCOMES = ["Rejected", "Out of Scope", "Withdrawn", "Transferred",
+  "Closed – Inactive", "Closed – Discontinued", "Successfully Completed", "Partially Completed"];
+const APPROVED_OUTCOMES = ["Approved for Support", "Conditionally Approved"];
+const OUTCOME_COLORS = {
+  "Pending Decision": "#f59e0b", "Approved for Support": "#16a34a", "Conditionally Approved": "#65a30d",
+  "Rejected": "#ef4444", "Out of Scope": "#64748b", "Withdrawn": "#94a3b8",
+  "Ongoing": "#3b82f6", "Successfully Completed": "#16a34a", "Partially Completed": "#f59e0b",
+  "Closed – Inactive": "#64748b", "Closed – Discontinued": "#b91c1c", "Transferred": "#8b5cf6",
+  /* legacy labels still found in old records before migration runs */
+  "Successful": "#16a34a", "Supported": "#3b82f6",
+};
+
+/* Workflow A milestones — the evaluation checkpoints with their responsible party */
+const WF_A_MILESTONES = [
+  { id: "submitted", label: "Application submitted", stage: "Submission Form", owner: "Applicant / system" },
+  { id: "assessed", label: "Initial assessment completed", stage: "Screening", owner: "Business Developer" },
+  { id: "committee", label: "Initial committee review completed", stage: "Committee Review", owner: "Evaluation Committee" },
+  { id: "deck", label: "Pitch deck submitted", stage: "Pitch & Expert Evaluation", owner: "Applicant" },
+  { id: "pitch", label: "Pitch presentation completed", stage: "Pitch & Expert Evaluation", owner: "Applicant & KII" },
+  { id: "expert", label: "Expert assessment completed", stage: "Pitch & Expert Evaluation", owner: "Assigned Expert" },
+  { id: "decision", label: "Final evaluation decision issued", stage: "Final Decision", owner: "CEO / authorized decision maker" },
+  { id: "notified", label: "Applicant notified of decision", stage: "Final Decision", owner: "Application & Administration team" },
+];
+/* Workflow B support tracks — selected per project during Support Planning */
+const WF_B_TRACKS = ["Support Planning", "Technical Development", "Business Development",
+  "Testing & Validation", "Capacity Building", "Legal & Registration", "Market Access",
+  "Procurement Support", "Project Completion"];
+const TRACK_STATUSES = ["Not Started", "In Progress", "Done", "On Hold", "N/A"];
+const WF_OF_STAGE = Object.fromEntries([...WF_A_STAGES.map(s => [s, "A"]), ...WF_B_STAGES.map(s => [s, "B"])]);
+
 const STAGE_COLORS = {
-  "Submitted Form": "#3b82f6", "Under Evaluation": "#8b5cf6", "Approval": "#f59e0b",
-  "Pitch Deck": "#a855f7", "Market Validation": "#2dd4bf",
-  "Prototype Development": "#14b8a6", "Investor / Stakeholder": "#22c55e",
+  "Submission Form": "#3b82f6", "Screening": "#0ea5e9", "Committee Review": "#8b5cf6",
+  "Pitch & Expert Evaluation": "#a855f7", "Final Decision": "#f59e0b",
+  "Support Planning": "#0d9488", "Project Development": "#14b8a6", "Testing & Validation": "#2dd4bf",
+  "Market & Stakeholder Engagement": "#22c55e", "Launch & Completion": "#15803d",
+};
+const STATE_COLORS = {
+  "Active": "#22c55e", "Awaiting Applicant": "#3b82f6", "Awaiting KII Review": "#8b5cf6",
+  "Awaiting KII Action": "#8b5cf6", "Awaiting External Party": "#f59e0b", "On Hold": "#f59e0b",
+  "Evaluation Completed": "#16a34a", "Completed": "#16a34a", "Closed": "#64748b",
 };
 /* short explanation of each stage, shown to applicants on their dashboard */
 const STAGE_INFO = {
-  "Submitted Form": "Your application has been received and is awaiting review.",
-  "Under Evaluation": "Your application is being reviewed and scored.",
-  "Approval": "Your application is awaiting the final approval decision.",
-  "Pitch Deck": "You have been invited to pitch your project.",
-  "Market Validation": "KII is helping validate your market and business potential.",
-  "Prototype Development": "Your project is in development — build and test your prototype.",
-  "Investor / Stakeholder": "You are being connected with investors and stakeholders.",
+  "Submission Form": "Your application has been received and is awaiting initial review.",
+  "Screening": "KII is checking that your application is complete and within scope.",
+  "Committee Review": "Your application is being reviewed by the KII evaluation committee.",
+  "Pitch & Expert Evaluation": "You have been invited to pitch your project and experts are assessing it.",
+  "Final Decision": "Your application is awaiting the final decision.",
+  "Support Planning": "KII is preparing your support plan and onboarding.",
+  "Project Development": "Your project is in development — build and deliver your solution.",
+  "Testing & Validation": "Your solution is being tested and validated.",
+  "Market & Stakeholder Engagement": "KII is helping you reach the market and connect with stakeholders.",
+  "Launch & Completion": "Your project is being launched and closed out.",
 };
-/* migrate old stage names */
+/* migrate old stage names to the new workflows */
 const STAGE_MIGRATE = {
-  "Submitted": "Submitted Form", "Initial Review": "Under Evaluation",
-  "Expert Evaluation": "Under Evaluation", "Evaluation": "Under Evaluation",
-  "Interview / Pitch": "Pitch Deck", "CEO Approval": "Approval",
-  "Team Action": "Market Validation", "Accepted": "Market Validation", "On Hold": "Market Validation",
-  "Implementation": "Prototype Development", "Development": "Prototype Development",
-  "Ongoing": "Investor / Stakeholder", "Closed": "Investor / Stakeholder",
+  "Submitted": "Submission Form", "Submitted Form": "Submission Form",
+  "Initial Review": "Committee Review", "Expert Evaluation": "Committee Review",
+  "Evaluation": "Committee Review", "Under Evaluation": "Committee Review",
+  "Interview / Pitch": "Pitch & Expert Evaluation", "Pitch Deck": "Pitch & Expert Evaluation",
+  "CEO Approval": "Final Decision", "Approval": "Final Decision",
+  "Team Action": "Market & Stakeholder Engagement", "Accepted": "Support Planning",
+  "Market Validation": "Market & Stakeholder Engagement",
+  "Implementation": "Project Development", "Development": "Project Development",
+  "Prototype Development": "Project Development",
+  "On Hold": "Support Planning", "Ongoing": "Market & Stakeholder Engagement",
+  "Investor / Stakeholder": "Market & Stakeholder Engagement", "Closed": "Launch & Completion",
 };
+const OUTCOME_MIGRATE = { "Successful": "Successfully Completed", "Supported": "Ongoing" };
 /* which role is responsible at each stage (gets notified on advance) */
 const STAGE_OWNER = {
-  "Submitted Form": "admin_manager", "Under Evaluation": "technical_manager",
-  "Approval": "ceo", "Pitch Deck": "admin_manager",
-  "Market Validation": "business_developer", "Prototype Development": "technical_manager",
-  "Investor / Stakeholder": "ceo",
+  "Submission Form": "admin_manager", "Screening": "business_developer",
+  "Committee Review": "technical_manager", "Pitch & Expert Evaluation": "admin_manager",
+  "Final Decision": "ceo",
+  "Support Planning": "admin_manager", "Project Development": "technical_manager",
+  "Testing & Validation": "technical_manager", "Market & Stakeholder Engagement": "business_developer",
+  "Launch & Completion": "ceo",
 };
-/* outcome / final status labels */
-const OUTCOMES = ["Successful", "Supported", "Rejected", "Withdrawn"];
-const OUTCOME_COLORS = { "Successful": "#22c55e", "Supported": "#3b82f6", "Rejected": "#ef4444", "Withdrawn": "#64748b" };
 
-/* default checklist items per stage */
+/* gate checklists shown to staff per stage */
 const STAGE_CHECKLISTS = {
-  "Submitted Form": ["Application received", "Documents complete", "Scope check done"],
-  "Under Evaluation": ["Experts assigned (no conflict of interest)", "At least 2 evaluations submitted", "Scores reviewed"],
-  "Approval": ["Decision made", "Applicant notified"],
-  "Pitch Deck": ["Pitch scheduled", "Pitch held", "Panel feedback recorded"],
-  "Market Validation": ["Market analysis completed", "Customer validation done", "Business model confirmed"],
-  "Prototype Development": ["Prototype plan agreed", "Milestones set", "Prototype delivered & tested"],
-  "Investor / Stakeholder": ["Investment readiness assessed", "Investor introductions made", "Final report archived"],
+  "Submission Form": ["Application received", "Documents complete", "Scope check done"],
+  "Screening": ["Initial assessment completed", "Eligibility & scope confirmed", "Screening verdict recorded"],
+  "Committee Review": ["Committee convened", "Committee review recorded", "Committee verdict issued"],
+  "Pitch & Expert Evaluation": ["Pitch deck received", "Pitch presentation held", "Expert assessment completed"],
+  "Final Decision": ["Decision issued by authorized person", "Applicant notified"],
+  "Support Planning": ["Support plan agreed", "Applicant onboarded / agreement signed", "Support tracks selected & owners assigned"],
+  "Project Development": ["Development plan active", "Progress reviewed", "Procurement needs identified"],
+  "Testing & Validation": ["Tests performed", "Validation results recorded", "Issues resolved"],
+  "Market & Stakeholder Engagement": ["Market validation done", "Stakeholder meetings held", "Partnerships recorded"],
+  "Launch & Completion": ["Launch / handover done", "Final report archived", "Post-completion follow-up scheduled"],
 };
 
 /* support types an applicant can request */
@@ -233,8 +294,19 @@ function amsGetApplicants() {
   // migrate old stage names + fill new fields
   list.forEach(a => {
     if (STAGE_MIGRATE[a.stage]) a.stage = STAGE_MIGRATE[a.stage];
-    if (!STAGES.includes(a.stage)) a.stage = "Submitted Form";
     if (a.stageForced && STAGE_MIGRATE[a.stageForced]) a.stageForced = STAGE_MIGRATE[a.stageForced];
+    if (!STAGES.includes(a.stage)) a.stage = "Submission Form";
+    if (!a.workflow) a.workflow = WF_OF_STAGE[a.stage] || "A";
+    if (a.workflow !== "A" && a.workflow !== "B") a.workflow = "A";
+    if (a.outcome && OUTCOME_MIGRATE[a.outcome]) a.outcome = OUTCOME_MIGRATE[a.outcome];
+    if (!a.state) a.state = a.status === "Inactive" ? "On Hold" : "Active";
+    if (!a.status) a.status = "Active";
+    a.wfMilestones = a.wfMilestones || {};
+    if (a.appliedDate || a.portalData?.submitted)
+      a.wfMilestones.submitted = a.wfMilestones.submitted || { done: true, by: "System", date: a.appliedDate };
+    a.tracks = a.tracks || null;
+    a.gates = a.gates || [];
+    a.conditions = a.conditions || [];
     if (!a.kpis) a.kpis = { technical: 0, business: 0, market: 0, team: 0 };
     if (!a.checklist) a.checklist = {};
     if (!a.supportRequested) a.supportRequested = [];
@@ -288,7 +360,7 @@ function amsSyncPortal() {
     const project = data.innovation || data.supporting || {};
     const fullName = [user.firstName, user.secondName, user.thirdName].filter(Boolean).join(" ");
     const projTitle = project.title || fullName + "'s Project";
-    const stage = "Submitted Form";
+    const stage = "Submission Form";
     const progress = app.submitted ? 5 : Math.round(((app.completedSections || []).length / KII.applicationSteps(app)) * 5);
     const location = app.data?.personal?.city && app.data?.personal?.country
       ? app.data.personal.city + ", " + app.data.personal.country : "—";
@@ -363,6 +435,7 @@ function amsSyncPortal() {
         location,
         appliedDate: app.submittedAt || app.startedAt, lastActivity: app.startedAt,
         status: "Active", stage, progress,
+        workflow: "A", state: "Active",
         supportApproved: 0, spent: 0, committed: 0,
         kpis: { technical: 0, business: 0, market: 0, team: 0 },
         activities: [{ date: app.startedAt, icon: "doc", title: "Application started",
@@ -548,24 +621,115 @@ function amsGetGroups() {
 function amsSaveGroups(l) { localStorage.setItem(AMS.GROUPS_KEY, JSON.stringify(l)); }
 
 /* ---------- workflow helpers ---------- */
-function amsNextStage(stage) {
-  const i = STAGES.indexOf(stage);
-  return i >= 0 && i < STAGES.length - 1 ? STAGES[i + 1] : null;
+function amsWorkflow(app) { return app?.workflow === "B" ? "B" : "A"; }
+function amsWfLabel(app) { return amsWorkflow(app) === "B" ? WF_B_NAME : WF_A_NAME; }
+function amsWfStages(app) { return amsWorkflow(app) === "B" ? WF_B_STAGES : WF_A_STAGES; }
+function amsWfStates(app) { return amsWorkflow(app) === "B" ? WF_B_STATES : WF_A_STATES; }
+function amsWfOutcomes(app) { return amsWorkflow(app) === "B" ? WF_B_OUTCOMES : WF_A_OUTCOMES; }
+function amsIsTerminal(app) { return TERMINAL_OUTCOMES.includes(app?.outcome); }
+function amsNextStage(app) {
+  const s = amsWfStages(app), i = s.indexOf(app.stage);
+  return i >= 0 && i < s.length - 1 ? s[i + 1] : null;
 }
 function amsStageOwner(stage) { return STAGE_OWNER[stage] || null; }
+/* keep the coarse status in step with the fine-grained state / outcome */
+function amsSyncStatus(a) {
+  a.status = (amsIsTerminal(a) || a.state === "On Hold" || a.state === "Closed") ? "Inactive" : "Active";
+}
+function amsSetState(a, state, byName) {
+  a.state = state;
+  amsSyncStatus(a);
+  (a.activities = a.activities || []).unshift({
+    date: new Date().toISOString(), icon: "status",
+    title: "State changed", desc: `Case is now “${state}”`, by: byName,
+  });
+  a.lastActivity = new Date().toISOString();
+}
+/* record a gate verdict (staff-only history of pass / hold / return decisions) */
+function amsGate(app, verdict, note, byName) {
+  (app.gates = app.gates || []).unshift({
+    date: new Date().toISOString(), stage: app.stage, workflow: amsWorkflow(app),
+    verdict, note: note || "", by: byName,
+  });
+}
 function amsAdvanceStage(app, byName) {
-  const next = amsNextStage(app.stage);
+  const next = amsNextStage(app);
   if (!next) return null;
+  const from = app.stage;
   app.stage = next;
   app.stageForced = next;
+  if (app.state !== "Active") { app.state = "Active"; amsSyncStatus(app); }
   (app.activities = app.activities || []).unshift({
     date: new Date().toISOString(), icon: "status",
     title: "Stage advanced", desc: `Moved to “${next}”`, by: byName,
   });
   app.lastActivity = new Date().toISOString();
+  amsGate(app, "Advanced", `${from} → ${next}`, byName);
   const owner = amsStageOwner(next);
   if (owner) amsNotifyRole(owner, `Case "${app.name}" moved to ${next} — action required.`, `admin.html?v=applicant&id=${encodeURIComponent(app.id)}`);
   return next;
+}
+/* loop back to an earlier stage (ISO 56002 non-linear iteration) */
+function amsLoopBack(app, target, note, byName) {
+  const stages = amsWfStages(app);
+  if (!stages.includes(target) || stages.indexOf(target) >= stages.indexOf(app.stage)) return false;
+  const from = app.stage;
+  app.stage = target;
+  app.stageForced = target;
+  app.state = amsWorkflow(app) === "A" ? "Awaiting KII Review" : "Awaiting KII Action";
+  amsSyncStatus(app);
+  amsGate(app, "Returned", `${from} ← ${target}${note ? " — " + note : ""}`, byName);
+  (app.activities = app.activities || []).unshift({
+    date: new Date().toISOString(), icon: "status",
+    title: "Returned to earlier stage", desc: `${from} → ${target}${note ? " — " + note : ""}`, by: byName,
+  });
+  app.lastActivity = new Date().toISOString();
+  return true;
+}
+/* move an approved initiative into Workflow B */
+function amsMoveToB(app, byName) {
+  app.workflow = "B";
+  app.stage = "Support Planning";
+  app.stageForced = "Support Planning";
+  app.state = "Active";
+  app.outcome = "Ongoing";
+  amsSyncStatus(app);
+  app.tracks = app.tracks || {};
+  app.tracks["Support Planning"] = app.tracks["Support Planning"] ||
+    { sel: true, status: "In Progress", owner: "", due: "", note: "" };
+  app.tracks["Project Completion"] = app.tracks["Project Completion"] ||
+    { sel: true, status: "Not Started", owner: "", due: "", note: "" };
+  (app.activities = app.activities || []).unshift({
+    date: new Date().toISOString(), icon: "status",
+    title: "Moved to Workflow B — Project Development & Support", desc: "Evaluation approved — support planning begins.", by: byName,
+  });
+  app.lastActivity = new Date().toISOString();
+  amsGate(app, "Approved", "Application Evaluation completed — entered Project Development & Support", byName);
+  const owner = amsStageOwner("Support Planning");
+  if (owner) amsNotifyRole(owner, `"${app.name}" was approved — start Support Planning.`, `admin.html?v=applicant&id=${encodeURIComponent(app.id)}`);
+}
+/* Workflow A milestones: defs + saved state (separate from report milestones `a.milestones`) */
+function amsMilestones(app) {
+  const saved = app.wfMilestones || {};
+  return WF_A_MILESTONES.map(m => ({ ...m, ...(saved[m.id] || {}) }));
+}
+function amsSetMilestone(app, id, done, byName, note) {
+  app.wfMilestones = app.wfMilestones || {};
+  app.wfMilestones[id] = done
+    ? { done: true, by: byName, date: new Date().toISOString(), note: note || "" }
+    : { done: false };
+  if (id === "notified" && done) app.decisionNotified = new Date().toISOString();
+}
+/* issue the Workflow A outcome; approved outcomes hand the case to Workflow B */
+function amsDecide(app, outcome, note, byName, extra) {
+  app.outcome = outcome;
+  if (extra?.transferTo) app.transferTo = extra.transferTo;
+  if (extra?.conditions) app.conditions = extra.conditions;
+  app.wfMilestones = app.wfMilestones || {};
+  app.wfMilestones.decision = { done: true, by: byName, date: new Date().toISOString(), note: outcome };
+  amsGate(app, outcome, note, byName);
+  if (APPROVED_OUTCOMES.includes(outcome)) { app.wfAOutcome = outcome; amsMoveToB(app, byName); }
+  else { app.state = "Evaluation Completed"; amsSyncStatus(app); }
 }
 
 /* checklist accessor */

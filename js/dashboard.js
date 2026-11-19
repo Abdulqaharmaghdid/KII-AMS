@@ -159,19 +159,29 @@ if (user) {
     wrap.classList.toggle("hidden", !rec);
     if (!rec) return;
 
-    // --- stage stepper ---
-    const idx = Math.max(0, STAGES.indexOf(rec.stage));
-    document.getElementById("stageStepper").innerHTML = STAGES.map((s, i) => `
-      <div class="step ${i < idx ? "done" : ""} ${i === idx ? "active" : ""}">
-        <div class="sdot">${i < idx ? "✓" : i + 1}</div>
-        <div class="slab">${s}</div>
-      </div>${i < STAGES.length - 1 ? '<div class="sline"></div>' : ""}`).join("");
+    // --- two-workflow stage stepper ---
+    const wf = rec.workflow === "B" ? "B" : "A";
+    const lane = (w, label, stages) => {
+      const reached = w === "A" || wf === "B";
+      const cur = wf === w ? stages.indexOf(rec.stage) : (w === "A" ? stages.length : -1);
+      return `<div class="wf-lane ${reached ? "" : "dim"}"><div class="wf-tag">Workflow ${w} · ${label}</div>
+        <div class="stepper" style="margin:4px 0 8px">${stages.map((s, i) => `
+          <div class="step ${i < cur ? "done" : ""} ${i === cur ? "active" : ""}">
+            <div class="sdot">${i < cur ? "✓" : i + 1}</div>
+            <div class="slab">${s}</div>
+          </div>${i < stages.length - 1 ? '<div class="sline"></div>' : ""}`).join("")}</div></div>`;
+    };
+    document.getElementById("stageStepper").innerHTML =
+      lane("A", "Application Evaluation", WF_A_STAGES) + lane("B", "Project Development & Support", WF_B_STAGES);
     const stg = document.getElementById("dStage");
     stg.textContent = rec.stage + (STAGE_INFO[rec.stage] ? " — " + STAGE_INFO[rec.stage] : "");
     stg.style.color = STAGE_COLORS[rec.stage] || "";
     stg.style.fontWeight = "600";
-    document.getElementById("dOutcome").textContent = rec.outcome || "—";
-    if (rec.outcome) document.getElementById("dOutcome").style.color = OUTCOME_COLORS[rec.outcome] || "";
+    const oc = document.getElementById("dOutcome");
+    // the A-workflow decision stays hidden until staff record the notification milestone
+    const showOutcome = rec.outcome && (rec.decisionNotified || wf === "B");
+    oc.textContent = showOutcome ? rec.outcome : (rec.state && rec.state !== "Active" ? rec.state : "—");
+    if (showOutcome || oc.textContent !== "—") oc.style.color = OUTCOME_COLORS[rec.outcome] || STATE_COLORS[rec.state] || "";
 
     // --- milestones & progress reports ---
     const ms = rec.milestones || [];

@@ -24,7 +24,8 @@ const read = file => fs.readFileSync(file, "utf8");
     record.tasks = [{ id: "follow-up", task: "Send a progress report", status: "Open",
       assignedTo: "Applicant", due: "2026-12-01", priority: "Medium" }];
     api.amsSaveApplicants(records); api.amsSyncPortal();
-    assert.equal(api.amsGetApplicant(id).stage, "Under Evaluation");
+    assert.equal(api.amsGetApplicant(id).stage, "Committee Review");
+    assert.equal(api.amsGetApplicant(id).workflow, "A");
     api.amsPostChat(id, { from: "staff", name: "Private staff name", text: "Please share an update." });
     w.eval(read("js/dashboard.js"));
     assert.match(w.document.getElementById("chatBox").textContent, /Please share an update/);

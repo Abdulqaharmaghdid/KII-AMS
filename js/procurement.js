@@ -125,6 +125,14 @@ function prMirror(pr, activity) {
   a.procurement = a.procurement || [];
   const i = a.procurement.findIndex(p => p.v2 === pr.id);
   if (i >= 0) a.procurement[i] = row; else a.procurement.push(row);
+  /* reflect progress on the Workflow B "Procurement Support" track */
+  if (a.tracks) {
+    const open = amsGetPrs().filter(p => p.appId === a.id && p.id !== pr.id && !["completed", "rejected", "cancelled"].includes(p.status));
+    const thisOpen = !["completed", "rejected", "cancelled"].includes(pr.status);
+    const tr = a.tracks["Procurement Support"] = a.tracks["Procurement Support"] || { sel: true, status: "Not Started", owner: "", due: "", note: "" };
+    tr.sel = true;
+    tr.status = (open.length || thisOpen) ? "In Progress" : "Done";
+  }
   if (activity) touch(a, { icon: "pr", ...activity });
   syncFin(a);
   amsSaveApplicants(apps);
